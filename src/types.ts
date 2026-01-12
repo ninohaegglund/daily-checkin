@@ -3,6 +3,7 @@ export type DailyCheckIn = {
   mood: "low" | "neutral" | "good";
   stress: "low" | "medium" | "high";
   energy: "low" | "medium" | "high";
+  date?: string;
 };
 
 export type StatusEffect = {

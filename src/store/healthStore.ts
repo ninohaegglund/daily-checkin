@@ -4,7 +4,9 @@ import type { DailyCheckIn, StatusEffect } from "../types";
 type HealthState = {
   checkIn: DailyCheckIn;
   statuses: StatusEffect[];
+  history: DailyCheckIn[];
   setCheckIn: (checkIn: DailyCheckIn) => void;
+  saveCheckIn: () => void;
   generateStatuses: () => void;
 };
 
@@ -15,8 +17,27 @@ export const useHealthStore = create<HealthState>((set, get) => ({
     stress: "medium",
     energy: "medium",
   },
+
   statuses: [],
+
+  history: [], 
+
   setCheckIn: (checkIn) => set({ checkIn }),
+
+
+  saveCheckIn: () => {
+    const current = get().checkIn;
+    set((state) => ({
+      history: [
+        {
+          ...current,
+          date: new Date().toISOString(), 
+        },
+        ...state.history,
+      ],
+    }));
+  },
+
   generateStatuses: () => {
     const { checkIn } = get();
     const newStatuses: StatusEffect[] = [];

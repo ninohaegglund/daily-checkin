@@ -1,5 +1,7 @@
 import CheckInForm from "./components/CheckInForm";
 import StatusPanel from "./components/StatusPanel";
+import StatusBars from "./components/StatusBars";
+
 import Logo from "./components/Logo";
 
 function App() {
@@ -44,10 +46,22 @@ function App() {
       </div>
 
       {/* Main content */}
-     <div className="flex flex-col items-center p-6 mt-8 md:mt-12  rounded-t-xl shadow-lg">
-      <CheckInForm />
-      <StatusPanel />
-    </div>
+      <section className="mt-8 md:mt-12">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
+            {/* Left: form + panel */}
+            <div className="lg:col-span-2 flex flex-col gap-6">
+              <CheckInForm />
+              <StatusPanel />
+            </div>
+            {/* Right: status bars */}
+            <div className="lg:col-span-1">
+              <StatusBars />
+            </div>
+          </div>
+        </div>
+      </section>
+          
     </div>
   );
 }

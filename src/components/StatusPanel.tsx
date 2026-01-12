@@ -3,6 +3,8 @@ import { useHealthStore } from "../store/healthStore";
 export default function StatusPanel() {
   const { statuses } = useHealthStore();
 
+  if (!statuses || statuses.length === 0) return null;
+
   return (
     <div className="mt-8 w-full max-w-xl grid gap-6 grid-cols-1 sm:grid-cols-1 md:grid-cols-1">
       {statuses.map((status) => (
