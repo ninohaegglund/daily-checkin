@@ -47,10 +47,10 @@ export default function CheckInForm() {
           onChange={(e) => handleChange("sleep", sleepVals[Number(e.target.value)])}
           className="w-full accent-emerald-500"
         />
-        <div className="flex justify-between text-xs text-gray-500">
+        <div className="slider-marks">
           <span>Poor</span>
-          <span>Ok</span>
-          <span>Good</span>
+          <span className="text-center">Ok</span>
+          <span className="text-right">Good</span>
         </div>
       </div>
 
@@ -69,10 +69,10 @@ export default function CheckInForm() {
           onChange={(e) => handleChange("mood", moodVals[Number(e.target.value)])}
           className="w-full accent-emerald-500"
         />
-        <div className="flex justify-between text-xs text-gray-500">
+        <div className="slider-marks">
           <span>Low</span>
-          <span>Neutral</span>
-          <span>Good</span>
+          <span className="text-center">Neutral</span>
+          <span className="text-right">Good</span>
         </div>
       </div>
 
@@ -91,10 +91,10 @@ export default function CheckInForm() {
           onChange={(e) => handleChange("stress", stressVals[Number(e.target.value)])}
           className="w-full accent-emerald-500"
         />
-        <div className="flex justify-between text-xs text-gray-500">
+        <div className="slider-marks">
           <span>Low</span>
-          <span>Medium</span>
-          <span>High</span>
+          <span className="text-center">Medium</span>
+          <span className="text-right">High</span>
         </div>
       </div>
 
@@ -113,10 +113,10 @@ export default function CheckInForm() {
           onChange={(e) => handleChange("energy", energyVals[Number(e.target.value)])}
           className="w-full accent-emerald-500"
         />
-        <div className="flex justify-between text-xs text-gray-500">
+        <div className="slider-marks">
           <span>Low</span>
-          <span>Medium</span>
-          <span>High</span>
+          <span className="text-center">Medium</span>
+          <span className="text-right">High</span>
         </div>
       </div>
 

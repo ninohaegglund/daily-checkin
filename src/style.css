@@ -13,3 +13,46 @@
     }
   }
 }
+
+/* Polished range sliders */
+input[type="range"] {
+
+
+
+}
+input[type="range"]:focus {
+  outline: none;
+}
+/* WebKit thumb */
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 9999px;
+  background: #10b981;
+  border: 2px solid white;
+  box-shadow: 0 4px 10px rgba(16, 185, 129, 0.3);
+}
+/* Firefox track/thumb */
+input[type="range"]::-moz-range-track {
+  height: 4px;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, #10b981 0%, #34d399 50%, #a7f3d0 100%);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 9999px;
+  background: #10b981;
+  border: 2px solid white;
+  box-shadow: 0 4px 10px rgba(16, 185, 129, 0.3);
+}
+
+/* Tick marks container below sliders */
+.slider-marks {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  font-size: 0.75rem;
+  color: #6b7280;
+}

@@ -1,6 +1,8 @@
 import CheckInForm from "./components/CheckInForm";
 import StatusPanel from "./components/StatusPanel";
 import StatusBars from "./components/StatusBars";
+import HistoryPage from "./pages/History";
+import { Link, Routes, Route } from "react-router-dom";
 
 import Logo from "./components/Logo";
 
@@ -29,9 +31,9 @@ function App() {
             <Logo />
           </a>
           <nav className="space-x-4">
-            <button className="text-white font-medium hover:underline">Home</button>
-            <button className="text-white font-medium hover:underline">History</button>
-            </nav>
+            <Link to="/" className="text-white font-medium hover:underline">Home</Link>
+            <Link to="/history" className="text-white font-medium hover:underline">History</Link>
+          </nav>
         </header>
 
         {/* Hero text */}
@@ -48,17 +50,23 @@ function App() {
       {/* Main content */}
       <section className="mt-8 md:mt-12">
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
-            {/* Left: form + panel */}
-            <div className="lg:col-span-2 flex flex-col gap-6">
-              <CheckInForm />
-              <StatusPanel />
-            </div>
-            {/* Right: status bars */}
-            <div className="lg:col-span-1">
-              <StatusBars />
-            </div>
-          </div>
+          <Routes>
+            <Route
+              path="/"
+              element={
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
+                  <div className="lg:col-span-2 flex flex-col gap-6">
+                    <CheckInForm />
+                  </div>
+                  <div className="lg:col-span-1">
+                    <StatusBars />
+                    <StatusPanel />
+                  </div>
+                </div>
+              }
+            />
+            <Route path="/history" element={<HistoryPage />} />
+          </Routes>
         </div>
       </section>
           

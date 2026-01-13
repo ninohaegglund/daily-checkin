@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware";
 import type { DailyCheckIn, StatusEffect } from "../types";
 
 type HealthState = {
@@ -8,9 +9,12 @@ type HealthState = {
   setCheckIn: (checkIn: DailyCheckIn) => void;
   saveCheckIn: () => void;
   generateStatuses: () => void;
+  clearHistory: () => void;
 };
 
-export const useHealthStore = create<HealthState>((set, get) => ({
+export const useHealthStore = create<HealthState>()(
+  persist(
+    (set, get) => ({
   checkIn: {
     sleep: "ok",
     mood: "neutral",
@@ -74,4 +78,13 @@ export const useHealthStore = create<HealthState>((set, get) => ({
 
     set({ statuses: newStatuses });
   },
-}));
+
+  clearHistory: () => set({ history: [] }),
+    }),
+    {
+      name: "health-store",
+      storage: createJSONStorage(() => localStorage),
+      partialize: (state) => ({ history: state.history, checkIn: state.checkIn }),
+    }
+  )
+);

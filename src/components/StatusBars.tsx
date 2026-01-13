@@ -80,14 +80,24 @@ function getMetrics(checkIn: DailyCheckIn): Metric[] {
 }
 
 export default function StatusBars() {
-  const { checkIn } = useHealthStore();
+  const { history } = useHealthStore();
+  const latest = history[0] as DailyCheckIn | undefined;
 
-  const metrics = getMetrics(checkIn);
+  if (!latest) {
+    return (
+      <div className="w-full bg-white/80 backdrop-blur rounded-2xl shadow-lg p-6 border border-white/40">
+        <h2 className="text-xl font-bold mb-1">Status Overview</h2>
+        <p className="text-gray-600">No saved check-in yet. Adjust sliders and click "Save Today’s Status" to see your overview.</p>
+      </div>
+    );
+  }
+
+  const metrics = getMetrics(latest);
   const overall = Math.round(metrics.reduce((acc, m) => acc + m.percent, 0) / metrics.length);
   const overallColor = overall >= 75 ? "text-green-600" : overall >= 50 ? "text-yellow-600" : "text-red-600";
 
   return (
-    <div className="w-full bg-white/80 backdrop-blur rounded-2xl shadow-lg p-6 border border-white/40">
+    <div className="w-full bg-white/80 animate-fadeIn backdrop-blur rounded-2xl shadow-lg p-6 border border-white/40">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-bold">Status Overview</h2>
         <span className={`text-sm font-semibold ${overallColor}`}>Overall: {overall}%</span>
