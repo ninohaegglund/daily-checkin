@@ -2,9 +2,11 @@ import CheckInForm from "./components/CheckInForm";
 import StatusPanel from "./components/StatusPanel";
 import StatusBars from "./components/StatusBars";
 import HistoryPage from "./pages/History";
+import CalmInsightsPage from "./pages/CalmInsights";
 import { Link, Routes, Route } from "react-router-dom";
 
 import Logo from "./components/Logo";
+import HeroQuote from "./components/HeroQuote";
 
 function App() {
   return (
@@ -33,6 +35,7 @@ function App() {
           <nav className="space-x-4">
             <Link to="/" className="text-white font-medium hover:underline">Home</Link>
             <Link to="/history" className="text-white font-medium hover:underline">History</Link>
+            <Link to="/calm" className="text-white font-medium hover:underline">Calm Insights</Link>
           </nav>
         </header>
 
@@ -44,31 +47,37 @@ function App() {
           <p className="mt-4 text-xl md:text-2xl text-gray-200 drop-shadow-md max-w-2xl animate-fadeIn ">
              Track your mood, sleep, energy, and stress today.
           </p>
+          <HeroQuote />
         </div>
       </div>
 
       {/* Main content */}
-      <section className="mt-8 md:mt-12">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6">
+        <section className="mt-8 md:mt-12">
+          <div className="mx-auto max-w-6xl px-4 sm:px-6">
+            <Routes>
+              <Route
+                path="/"
+                element={
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
+                    <div className="lg:col-span-2 flex flex-col gap-6">
+                      <CheckInForm />
+                    </div>
+                    <div className="lg:col-span-1">
+                      <StatusBars />
+                      <StatusPanel />
+                    </div>
+                  </div>
+                }
+              />
+              <Route path="/history" element={<HistoryPage />} />
+            </Routes>
+          </div>
+        </section>
+        <section className="mt-8 md:mt-12">
           <Routes>
-            <Route
-              path="/"
-              element={
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
-                  <div className="lg:col-span-2 flex flex-col gap-6">
-                    <CheckInForm />
-                  </div>
-                  <div className="lg:col-span-1">
-                    <StatusBars />
-                    <StatusPanel />
-                  </div>
-                </div>
-              }
-            />
-            <Route path="/history" element={<HistoryPage />} />
+            <Route path="/calm" element={<CalmInsightsPage />} />
           </Routes>
-        </div>
-      </section>
+        </section>
           
     </div>
   );
