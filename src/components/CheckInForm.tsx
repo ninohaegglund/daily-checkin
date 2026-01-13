@@ -1,13 +1,14 @@
 import React from "react";
 import { useHealthStore } from "../store/healthStore";
-import type { DailyCheckIn } from "../types";
+import type { DailyCheckIn, ExerciseType } from "../types";
+import TagPicker from "./TagPicker";
 
 
 
 export default function CheckInForm() {
   const { checkIn, setCheckIn, saveCheckIn, generateStatuses } = useHealthStore();
 
-  const handleChange = (field: keyof DailyCheckIn, value: string) => {
+  const handleChange = <K extends keyof DailyCheckIn>(field: K, value: DailyCheckIn[K]) => {
     setCheckIn({ ...checkIn, [field]: value } as DailyCheckIn);
   };
 
@@ -22,6 +23,22 @@ export default function CheckInForm() {
   const moodVals = ["low", "neutral", "good"] as const;
   const stressVals = ["low", "medium", "high"] as const;
   const energyVals = ["low", "medium", "high"] as const;
+  const exerciseOptions: ExerciseType[] = [
+    "cardio",
+    "strength",
+    "upper",
+    "lower",
+    "mobility",
+    "flexibility",
+  ];
+  const exerciseLabels: Record<ExerciseType, string> = {
+    cardio: "Cardio",
+    strength: "Strength Training",
+    upper: "Upper Body",
+    lower: "Lower Body",
+    mobility: "Mobility",
+    flexibility: "Flexibility",
+  };
 
   const idx = (arr: readonly string[], v: string) => Math.max(0, arr.indexOf(v));
 
@@ -119,6 +136,61 @@ export default function CheckInForm() {
           <span className="text-right">High</span>
         </div>
       </div>
+
+      {/* Time in nature (minutes) */}
+      <div className="flex flex-col gap-3 p-4 rounded-xl bg-white shadow-sm">
+        <div className="flex items-center justify-between">
+          <label className="font-medium text-gray-700 text-sm uppercase tracking-wide">Time in nature</label>
+          <span className="text-sm text-gray-600">{checkIn.natureMinutes ?? 0} min</span>
+        </div>
+        <input
+          type="range"
+          min={0}
+          max={180}
+          step={5}
+          value={checkIn.natureMinutes ?? 0}
+          onChange={(e) => handleChange("natureMinutes", Number(e.target.value))}
+          className="w-full accent-emerald-500"
+        />
+        <div className="flex justify-between text-xs text-gray-500">
+          <span>0</span>
+          <span>60</span>
+          <span>120</span>
+          <span>180</span>
+        </div>
+      </div>
+
+         {/* Exercise types (tag picker with search) */}
+      <div className="flex flex-col gap-3 p-4 rounded-xl bg-white shadow-sm">
+        <label className="font-medium text-gray-700 text-sm uppercase tracking-wide">Exercise types</label>
+        <TagPicker
+          options={exerciseOptions}
+          value={checkIn.exercise ?? []}
+          onChange={(next) => handleChange("exercise", next as ExerciseType[])}
+          labelFormatter={(opt) => exerciseLabels[opt as ExerciseType] ?? opt}
+        />
+      </div>
+
+      {/* Steps input */}
+      <div className="flex flex-col gap-3 p-4 rounded-xl bg-white shadow-sm">
+        <label className="font-medium text-gray-700 text-sm uppercase tracking-wide">Steps</label>
+        <input
+          type="number"
+          min={0}
+          max={20000}
+          inputMode="numeric"
+          value={checkIn.steps ?? 0}
+          onChange={(e) => {
+            const n = Math.max(0, Math.min(20000, Number(e.target.value)));
+            handleChange("steps", n);
+          }}
+          placeholder="e.g., 8000"
+          className="p-3 rounded-lg border border-gray-300 text-lg focus:outline-none focus:ring-2 focus:ring-green-400"
+        />
+        <p className="text-xs text-gray-500">Typical range: 0–20,000 steps</p>
+      </div>
+
+   
 
      <button
         type="submit"

@@ -10,6 +10,7 @@ type HealthState = {
   saveCheckIn: () => void;
   generateStatuses: () => void;
   clearHistory: () => void;
+  removeEntry: (date: string) => void;
 };
 
 export const useHealthStore = create<HealthState>()(
@@ -20,6 +21,9 @@ export const useHealthStore = create<HealthState>()(
     mood: "neutral",
     stress: "medium",
     energy: "medium",
+    natureMinutes: 0,
+    steps: 0,
+    exercise: [],
   },
 
   statuses: [],
@@ -80,6 +84,8 @@ export const useHealthStore = create<HealthState>()(
   },
 
   clearHistory: () => set({ history: [] }),
+  removeEntry: (date: string) =>
+    set((state) => ({ history: state.history.filter((h) => h.date !== date) })),
     }),
     {
       name: "health-store",

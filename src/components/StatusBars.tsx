@@ -1,10 +1,10 @@
 import React from "react";
 import { useHealthStore } from "../store/healthStore";
 import type { DailyCheckIn } from "../types";
-import { BatteryFull, BatteryMedium, BatteryLow, Bed, Smile, Meh, Frown, AlertTriangle } from "lucide-react";
+import { BatteryFull, BatteryMedium, BatteryLow, Bed, Smile, Meh, Frown, AlertTriangle, Leaf, Activity } from "lucide-react";
 
 type Metric = {
-  key: "sleep" | "mood" | "stress" | "energy";
+  key: "sleep" | "mood" | "stress" | "energy" | "nature" | "steps";
   label: string;
   valueLabel: string;
   percent: number;
@@ -43,6 +43,12 @@ function getMetrics(checkIn: DailyCheckIn): Metric[] {
   const stressColor = checkIn.stress === "low" ? "bg-green-500" : checkIn.stress === "medium" ? "bg-yellow-400" : "bg-red-500";
   const energyColor = checkIn.energy === "high" ? "bg-green-500" : checkIn.energy === "medium" ? "bg-yellow-400" : "bg-red-500";
 
+  const natureTarget = 60; // minutes
+  const stepsTarget = 7000; // steps
+
+  const natureMinutes = typeof checkIn.natureMinutes === "number" ? checkIn.natureMinutes : 0;
+  const steps = typeof checkIn.steps === "number" ? checkIn.steps : 0;
+
   return [
     {
       key: "sleep",
@@ -75,6 +81,22 @@ function getMetrics(checkIn: DailyCheckIn): Metric[] {
       percent: energyMap[checkIn.energy],
       color: energyColor,
       icon: energyIcon,
+    },
+    {
+      key: "nature",
+      label: "Nature",
+      valueLabel: `${natureMinutes} min`,
+      percent: Math.min(100, Math.round((natureMinutes / natureTarget) * 100)),
+      color: natureMinutes >= natureTarget ? "bg-green-500" : natureMinutes >= natureTarget / 2 ? "bg-yellow-400" : "bg-red-500",
+      icon: <Leaf className="w-5 h-5" />,
+    },
+    {
+      key: "steps",
+      label: "Steps",
+      valueLabel: `${steps}`,
+      percent: Math.min(100, Math.round((steps / stepsTarget) * 100)),
+      color: steps >= stepsTarget ? "bg-green-500" : steps >= stepsTarget / 2 ? "bg-yellow-400" : "bg-red-500",
+      icon: <Activity className="w-5 h-5" />,
     },
   ];
 }

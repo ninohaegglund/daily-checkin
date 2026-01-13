@@ -4,7 +4,18 @@ export type DailyCheckIn = {
   stress: "low" | "medium" | "high";
   energy: "low" | "medium" | "high";
   date?: string;
+  natureMinutes?: number; // time spent in nature in minutes
+  steps?: number; // steps taken today
+  exercise?: ExerciseType[]; // selected exercise types
 };
+
+export type ExerciseType =
+  | "cardio"
+  | "strength"
+  | "upper"
+  | "lower"
+  | "mobility"
+  | "flexibility";
 
 export type StatusEffect = {
   id: string;
