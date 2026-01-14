@@ -6,6 +6,7 @@ export type DailyCheckIn = {
   date?: string;
   natureMinutes?: number; // time spent in nature in minutes
   steps?: number; // steps taken today
+  screenTime?: number; // minutes of screen time
   exercise?: ExerciseType[]; // selected exercise types
 };
 

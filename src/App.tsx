@@ -17,12 +17,32 @@ function App() {
 
        {/* Hero Section */}
       <div className="relative w-full h-96 md:h-[500px] lg:h-[600px] drop-shadow-lg">
-        {/* Background image */}
-        <img
-          src="https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1600&q=80"
-          alt="Hero"
-          className="absolute inset-0 w-full h-full object-cover"
-        />
+         
+          {(() => {
+            const videoSrc = "/hero2.mp4";
+            const poster = "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1600&q=80";
+            return (
+              <>
+                {/* show video on medium+ screens */}
+                <video
+                  className="hidden md:block absolute inset-0 w-full h-full object-cover"
+                  src={videoSrc}
+                  poster={poster}
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  aria-hidden
+                />
+                {/* fallback image for small screens */}
+                <img
+                  src={poster}
+                  alt="Hero"
+                  className="block md:hidden absolute inset-0 w-full h-full object-cover"
+                />
+              </>
+            );
+          })()}
 
         {/* Overlay for darkening image */}
         <div className="absolute inset-0 bg-black/50"></div>

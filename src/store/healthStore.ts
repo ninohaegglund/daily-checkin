@@ -7,10 +7,11 @@ type HealthState = {
   statuses: StatusEffect[];
   history: DailyCheckIn[];
   setCheckIn: (checkIn: DailyCheckIn) => void;
-  saveCheckIn: () => void;
+  saveCheckIn: (override?: Partial<DailyCheckIn>) => void;
   generateStatuses: () => void;
   clearHistory: () => void;
   removeEntry: (date: string) => void;
+  updateEntry: (date: string, patch: Partial<DailyCheckIn>) => void;
 };
 
 export const useHealthStore = create<HealthState>()(
@@ -23,6 +24,7 @@ export const useHealthStore = create<HealthState>()(
     energy: "medium",
     natureMinutes: 0,
     steps: 0,
+    screenTime: 0,
     exercise: [],
   },
 
@@ -33,16 +35,11 @@ export const useHealthStore = create<HealthState>()(
   setCheckIn: (checkIn) => set({ checkIn }),
 
 
-  saveCheckIn: () => {
+  saveCheckIn: (override) => {
     const current = get().checkIn;
+    const entry = { ...current, ...override, date: new Date().toISOString() };
     set((state) => ({
-      history: [
-        {
-          ...current,
-          date: new Date().toISOString(), 
-        },
-        ...state.history,
-      ],
+      history: [entry, ...state.history],
     }));
   },
 
@@ -86,6 +83,8 @@ export const useHealthStore = create<HealthState>()(
   clearHistory: () => set({ history: [] }),
   removeEntry: (date: string) =>
     set((state) => ({ history: state.history.filter((h) => h.date !== date) })),
+  updateEntry: (date: string, patch: Partial<DailyCheckIn>) =>
+    set((state) => ({ history: state.history.map((h) => (h.date === date ? { ...h, ...patch } : h)) })),
     }),
     {
       name: "health-store",

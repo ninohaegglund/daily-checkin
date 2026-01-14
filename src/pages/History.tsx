@@ -2,6 +2,8 @@ import { useHealthStore } from "../store/healthStore";
 import { useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { Trash2, Skull, X } from "lucide-react";
+import type { DailyCheckIn, ExerciseType } from "../types";
+import TagPicker from "../components/TagPicker";
 
 type MetricKey = "sleep" | "mood" | "stress" | "energy" | "nature" | "steps";
 
@@ -44,11 +46,14 @@ const formatDateShort = (iso?: string) =>
 
 export default function HistoryPage() {
   const { history, removeEntry } = useHealthStore();
+  const { updateEntry } = useHealthStore();
   const [metric, setMetric] = useState<MetricKey>("mood");
   const [range, setRange] = useState<"7" | "14" | "30" | "all">("7");
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
   const [showAll, setShowAll] = useState<boolean>(false);
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [editing, setEditing] = useState<DailyCheckIn | null>(null);
   const isEmpty = history.length === 0;
 
   // Always render the page; show notice/overlay when empty
@@ -270,6 +275,11 @@ export default function HistoryPage() {
         )}
       </div>
 
+      {/* Screen time average card (under trendline) */}
+      <div className="mt-4 mb-6">
+        <ScreenTimeCard sliced={sliced} />
+      </div>
+
       {/* Weekly streaks */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 mb-6">
         <div className="font-semibold text-gray-800 mb-2">Weekly streaks</div>
@@ -281,30 +291,53 @@ export default function HistoryPage() {
         {[...sliced].reverse().map((entry, idx) => (
           <div key={idx} className="py-4 flex items-center justify-between flex-wrap gap-4">
             <div>
-              <div className="text-sm text-gray-500">{new Date(entry.date || 0).toLocaleString()}</div>
-              <div className="text-gray-800 font-medium">
-                Sleep: <span className="text-gray-700">{entry.sleep}</span> · Mood: <span className="text-gray-700">{entry.mood}</span> · Stress: <span className="text-gray-700">{entry.stress}</span> · Energy: <span className="text-gray-700">{entry.energy}</span>
-                {typeof entry.natureMinutes === "number" && (
-                  <> · Nature: <span className="text-gray-700">{entry.natureMinutes} min</span></>
-                )}
-                {typeof entry.steps === "number" && (
-                  <> · Steps: <span className="text-gray-700">{entry.steps}</span></>
-                )}
-                {(entry.exercise && entry.exercise.length) ? (
-                  <> · Exercise: <span className="text-gray-700">{entry.exercise.join(", ")}</span></>
-                ) : null}
-              </div>
+                      <div className="text-sm text-gray-500">{new Date(entry.date || 0).toLocaleString()}</div>
+                      {!expanded[entry.date || String(idx)] ? (
+                        <div className="text-gray-800 font-medium">
+                          Sleep: <span className="text-gray-700">{entry.sleep}</span> · Mood: <span className="text-gray-700">{entry.mood}</span>
+                        </div>
+                      ) : (
+                        <div className="text-gray-800 font-medium">
+                          Sleep: <span className="text-gray-700">{entry.sleep}</span> · Mood: <span className="text-gray-700">{entry.mood}</span> · Stress: <span className="text-gray-700">{entry.stress}</span> · Energy: <span className="text-gray-700">{entry.energy}</span>
+                          {typeof entry.natureMinutes === "number" && (
+                            <> · Nature: <span className="text-gray-700">{entry.natureMinutes} min</span></>
+                          )}
+                          {typeof entry.steps === "number" && (
+                            <> · Steps: <span className="text-gray-700">{entry.steps}</span></>
+                          )}
+                          {(entry.exercise && entry.exercise.length) ? (
+                            <> · Exercise: <span className="text-gray-700">{entry.exercise.join(", ")}</span></>
+                          ) : null}
+                          {typeof entry.screenTime === "number" && (
+                            <> · Screen: <span className="text-gray-700">{entry.screenTime} min</span></>
+                          )}
+                        </div>
+                      )}
             </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                className="inline-flex items-center justify-center w-8 h-8 rounded-md border border-gray-200 text-gray-600 hover:text-red-600 hover:border-red-300 hover:bg-red-50"
-                title="Delete entry"
-                onClick={() => entry.date && setPendingDelete(entry.date)}
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        className="px-2 py-1 rounded-md text-sm border border-gray-200 hover:bg-gray-50"
+                        onClick={() => setExpanded((s) => ({ ...s, [entry.date || String(idx)]: !s[entry.date || String(idx)] }))}
+                      >
+                        {expanded[entry.date || String(idx)] ? "Collapse" : "Details"}
+                      </button>
+                      <button
+                        type="button"
+                        className="px-2 py-1 rounded-md text-sm border border-gray-200 hover:bg-gray-50"
+                        onClick={() => setEditing({ ...(entry as DailyCheckIn) })}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        className="inline-flex items-center justify-center w-8 h-8 rounded-md border border-gray-200 text-gray-600 hover:text-red-600 hover:border-red-300 hover:bg-red-50"
+                        title="Delete entry"
+                        onClick={() => entry.date && setPendingDelete(entry.date)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
           </div>
         ))}
       </div>
@@ -350,6 +383,93 @@ export default function HistoryPage() {
         </div>,
         document.body
       )}
+      {/* Edit modal */}
+      {editing && createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/60" onClick={() => setEditing(null)} />
+          <div className="relative w-[92%] max-w-md rounded-2xl border bg-white shadow-2xl p-6 animate-fadeIn">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-semibold">Edit entry</h3>
+              <button aria-label="Close" className="text-gray-400 hover:text-gray-600" onClick={() => setEditing(null)}><X className="w-4 h-4" /></button>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs text-gray-600">Sleep</label>
+                <select className="w-full p-2 border rounded mt-1" value={editing.sleep} onChange={(e) => setEditing({ ...editing, sleep: e.target.value as any })}>
+                  <option value="poor">poor</option>
+                  <option value="ok">ok</option>
+                  <option value="good">good</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-gray-600">Mood</label>
+                <select className="w-full p-2 border rounded mt-1" value={editing.mood} onChange={(e) => setEditing({ ...editing, mood: e.target.value as any })}>
+                  <option value="low">low</option>
+                  <option value="neutral">neutral</option>
+                  <option value="good">good</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-gray-600">Stress</label>
+                <select className="w-full p-2 border rounded mt-1" value={editing.stress} onChange={(e) => setEditing({ ...editing, stress: e.target.value as any })}>
+                  <option value="low">low</option>
+                  <option value="medium">medium</option>
+                  <option value="high">high</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-gray-600">Energy</label>
+                <select className="w-full p-2 border rounded mt-1" value={editing.energy} onChange={(e) => setEditing({ ...editing, energy: e.target.value as any })}>
+                  <option value="low">low</option>
+                  <option value="medium">medium</option>
+                  <option value="high">high</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-gray-600">Nature minutes</label>
+                <input type="number" className="w-full p-2 border rounded mt-1" value={editing.natureMinutes ?? 0} onChange={(e) => setEditing({ ...editing, natureMinutes: Number(e.target.value) })} />
+              </div>
+              <div>
+                <label className="text-xs text-gray-600">Steps</label>
+                <input type="number" className="w-full p-2 border rounded mt-1" value={editing.steps ?? 0} onChange={(e) => setEditing({ ...editing, steps: Number(e.target.value) })} />
+              </div>
+              <div>
+                <label className="text-xs text-gray-600">Screen time (minutes)</label>
+                <input type="number" className="w-full p-2 border rounded mt-1" value={editing.screenTime ?? 0} onChange={(e) => setEditing({ ...editing, screenTime: Number(e.target.value) })} />
+              </div>
+              <div>
+                <label className="text-xs text-gray-600">Exercise</label>
+                <TagPicker
+                  options={["cardio","strength","upper","lower","mobility","flexibility"]}
+                  value={editing.exercise ?? []}
+                  onChange={(next) => setEditing({ ...editing, exercise: next as ExerciseType[] })}
+                  labelFormatter={(opt) => {
+                    const map = {
+                      cardio: "Cardio",
+                      strength: "Strength Training",
+                      upper: "Upper Body",
+                      lower: "Lower Body",
+                      mobility: "Mobility",
+                      flexibility: "Flexibility",
+                    };
+                    return map[opt as ExerciseType] ?? opt;
+                  }}
+                />
+              </div>
+            </div>
+            <div className="mt-4 flex items-center justify-end gap-3">
+              <button className="px-4 py-2 rounded border" onClick={() => setEditing(null)}>Cancel</button>
+              <button className="px-4 py-2 rounded bg-blue-600 text-white" onClick={() => {
+                if (editing?.date) {
+                  const { date, ...rest } = editing;
+                  updateEntry(date, rest as Partial<DailyCheckIn>);
+                }
+                setEditing(null);
+              }}>Save</button>
+            </div>
+          </div>
+        </div>, document.body
+      )}
     </div>
   );
 }
@@ -387,6 +507,28 @@ function MiniCards({ history }: { history: Array<{ natureMinutes?: number; steps
         <div className="text-sm text-gray-700 mb-2">{steps.toLocaleString()}</div>
         {bar(stepsPct, steps >= stepsTarget ? "bg-green-500" : steps >= stepsTarget / 2 ? "bg-yellow-400" : "bg-red-500")}
       </div>
+    </div>
+  );
+}
+
+function ScreenTimeCard({ sliced }: { sliced: Array<DailyCheckIn> }) {
+  const vals = sliced.map((s) => s.screenTime).filter((v): v is number => typeof v === "number");
+  const avg = vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : 0;
+
+  const fmt = (m: number) => {
+    if (!m) return "—";
+    const hrs = Math.floor(m / 60);
+    const mins = m % 60;
+    return hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`;
+  };
+
+  return (
+    <div className="p-4 rounded-xl border border-gray-200 bg-white shadow-sm">
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-sm font-semibold text-gray-800">Avg screen time</span>
+        <span className="text-xs text-gray-600">Based on {vals.length} entries</span>
+      </div>
+      <div className="text-sm text-gray-700 mt-2">{fmt(avg)}</div>
     </div>
   );
 }

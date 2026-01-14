@@ -7,6 +7,7 @@ import TagPicker from "./TagPicker";
 
 export default function CheckInForm() {
   const { checkIn, setCheckIn, saveCheckIn, generateStatuses } = useHealthStore();
+  const [screenTime, setScreenTime] = React.useState("");
 
   const handleChange = <K extends keyof DailyCheckIn>(field: K, value: DailyCheckIn[K]) => {
     setCheckIn({ ...checkIn, [field]: value } as DailyCheckIn);
@@ -15,8 +16,11 @@ export default function CheckInForm() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    saveCheckIn();       
-    generateStatuses();   
+    // Save check-in with screenTime included in history, but not in status overview
+    const parsedScreenTime = screenTime ? Number(screenTime) : undefined;
+    saveCheckIn({ ...checkIn, screenTime: parsedScreenTime });
+    generateStatuses();
+    setScreenTime("");
   };
 
   const sleepVals = ["poor", "ok", "good"] as const;
@@ -190,11 +194,26 @@ export default function CheckInForm() {
         <p className="text-xs text-gray-500">Typical range: 0–20,000 steps</p>
       </div>
 
+      {/* Screen Time input (not shown in status overview) */}
+      <div className="flex flex-col gap-3 p-4 rounded-xl bg-white shadow-sm">
+        <label className="font-medium text-gray-700 text-sm uppercase tracking-wide">Screen Time (minutes, optional)</label>
+        <input
+          type="number"
+          min={0}
+          inputMode="numeric"
+          value={screenTime}
+          onChange={(e) => setScreenTime(e.target.value)}
+          placeholder="e.g., 120"
+          className="p-3 rounded-lg border border-gray-300 text-lg focus:outline-none focus:ring-2 focus:ring-green-400"
+        />
+        <p className="text-xs text-gray-500">How many minutes of screen time today?</p>
+      </div>
+
    
 
      <button
         type="submit"
-        className="mt-6 w-full px-6 py-4 bg-gradient-to-r from-green-400 to-emerald-500 text-white text-lg font-semibold rounded-xl shadow-md hover:scale-[1.02] transition-all duration-200"
+        className="mt-6 w-full px-6 py-4 bg-linear-to-r from-green-400 to-emerald-500 text-white text-lg font-semibold rounded-xl shadow-md hover:scale-[1.02] transition-all duration-200"
       >
         Save Today’s Status
     </button>
