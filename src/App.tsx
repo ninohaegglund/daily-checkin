@@ -11,9 +11,8 @@ import DailyCheckInPage from "./pages/DailyCheckInPage";
 function App() {
   return (
     
-    <div className="min-h-screen bg-gradient-to-b from-green-50 via-green-100 to-yellow-50">
+    <div className="min-h-screen relative overflow-hidden">
 
-     
 
        {/* Hero Section */}
       <div className="relative w-full h-96 md:h-[500px] lg:h-[600px] drop-shadow-lg">
@@ -55,7 +54,6 @@ function App() {
           <nav className="space-x-4">
             <Link to="/" className="text-white font-medium hover:underline">Home</Link>
             <Link to="/history" className="text-white font-medium hover:underline">History</Link>
-            <Link to="/check-in" className="text-white font-medium hover:underline">API</Link>
           </nav>
         </header>
 
@@ -90,14 +88,12 @@ function App() {
                 }
               />
               <Route path="/history" element={<HistoryPage />} />
+                <Route path="/api" element={<DailyCheckInPage />} />
             </Routes>
+            
           </div>
         </section>
-        <section className="mt-8 md:mt-12">
-          <Routes>
-            <Route path="/check-in" element={<DailyCheckInPage />} />
-          </Routes>
-        </section>
+    
           
     </div>
   );

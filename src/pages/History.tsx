@@ -1,9 +1,11 @@
 import { useHealthStore } from "../store/healthStore";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { Trash2, Skull, X } from "lucide-react";
 import type { DailyCheckIn, ExerciseType } from "../types";
 import TagPicker from "../components/TagPicker";
+
+const API_URL = "https://localhost:7016/api/stats";
 
 type MetricKey = "sleep" | "mood" | "stress" | "energy" | "nature" | "steps";
 
@@ -47,6 +49,10 @@ const formatDateShort = (iso?: string) =>
 export default function HistoryPage() {
   const { history, removeEntry } = useHealthStore();
   const { updateEntry } = useHealthStore();
+  const [entries, setEntries] = useState<DailyCheckIn[]>([]);
+  const [idByDate, setIdByDate] = useState<Map<string, number> | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [metric, setMetric] = useState<MetricKey>("mood");
   const [range, setRange] = useState<"7" | "14" | "30" | "all">("7");
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
@@ -54,14 +60,100 @@ export default function HistoryPage() {
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [editing, setEditing] = useState<DailyCheckIn | null>(null);
-  const isEmpty = history.length === 0;
+  const isEmpty = entries.length === 0;
+
+  // Helpers to convert between backend stats and local DailyCheckIn
+  type DailyStat = {
+    id: number;
+    date: string;
+    mood: number;
+    energy: number;
+    stress: number;
+    sleepHours: number;
+    timeInNatureMinutes: number;
+    steps: number;
+    screenTimeMinutes?: number | null;
+    exercises: Array<{ type: "UpperBody" | "LowerBody" | "Mobility" | "Cardio" | "StrengthTraining"; durationMinutes: number; intensity: number; notes?: string }>;
+  };
+
+  const moodStr = (n: number): DailyCheckIn["mood"] => (n <= 3 ? "low" : n <= 7 ? "neutral" : "good");
+  const energyStr = (n: number): DailyCheckIn["energy"] => (n <= 3 ? "low" : n <= 7 ? "medium" : "high");
+  const stressStr = (n: number): DailyCheckIn["stress"] => (n <= 3 ? "low" : n <= 7 ? "medium" : "high");
+  const sleepStr = (hrs: number): DailyCheckIn["sleep"] => (hrs <= 6 ? "poor" : hrs === 7 ? "ok" : "good");
+  const exTag = (t: DailyStat["exercises"][number]["type"]): ExerciseType => {
+    switch (t) {
+      case "UpperBody": return "upper";
+      case "LowerBody": return "lower";
+      case "Mobility": return "mobility";
+      case "Cardio": return "cardio";
+      case "StrengthTraining": return "strength";
+      default: return "mobility";
+    }
+  };
+
+  const toCheckIn = (s: DailyStat): DailyCheckIn => ({
+    date: s.date,
+    mood: moodStr(s.mood),
+    energy: energyStr(s.energy),
+    stress: stressStr(s.stress),
+    sleep: sleepStr(s.sleepHours),
+    natureMinutes: s.timeInNatureMinutes,
+    steps: s.steps,
+    screenTime: s.screenTimeMinutes ?? undefined,
+    exercise: s.exercises?.length ? s.exercises.map((ex) => exTag(ex.type)) : [],
+  });
+
+  const toPayload = (d: DailyCheckIn, existing?: DailyStat): DailyStat => ({
+    id: existing?.id ?? 0,
+    date: d.date ?? new Date().toISOString(),
+    mood: d.mood === "low" ? 3 : d.mood === "neutral" ? 5 : 8,
+    energy: d.energy === "low" ? 3 : d.energy === "medium" ? 6 : 9,
+    stress: d.stress === "low" ? 3 : d.stress === "medium" ? 6 : 9,
+    sleepHours: d.sleep === "poor" ? 5 : d.sleep === "ok" ? 7 : 8,
+    timeInNatureMinutes: d.natureMinutes ?? 0,
+    steps: d.steps ?? 0,
+    screenTimeMinutes: typeof d.screenTime === "number" ? d.screenTime : null,
+    exercises: (d.exercise && d.exercise.length)
+      ? d.exercise.map((t) => ({
+          type: t === "upper" ? "UpperBody" : t === "lower" ? "LowerBody" : t === "mobility" || t === "flexibility" ? "Mobility" : t === "cardio" ? "Cardio" : "StrengthTraining",
+          durationMinutes: 30,
+          intensity: 5,
+        }))
+      : [],
+  });
+
+  useEffect(() => {
+    let canceled = false;
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch(API_URL);
+        if (!res.ok) throw new Error("Failed to load stats");
+        const data: DailyStat[] = await res.json();
+        if (canceled) return;
+        const converted = data.map(toCheckIn);
+        setEntries(converted);
+        setIdByDate(new Map(data.map((s) => [s.date, s.id])));
+      } catch (e) {
+        // Fallback to local history
+        setEntries(history);
+        setIdByDate(null);
+        if (e instanceof Error) setError(e.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+    return () => { canceled = true; };
+  }, [history]);
 
   // Always render the page; show notice/overlay when empty
 
   const maxItems = range === "all" ? Number.POSITIVE_INFINITY : Number(range);
   const sorted = useMemo(
-    () => [...history].sort((a, b) => new Date(a.date || 0).getTime() - new Date(b.date || 0).getTime()),
-    [history]
+    () => [...entries].sort((a, b) => new Date(a.date || 0).getTime() - new Date(b.date || 0).getTime()),
+    [entries]
   );
   const sliced = sorted.slice(Math.max(0, sorted.length - (isFinite(maxItems) ? maxItems : sorted.length)));
 
@@ -144,6 +236,13 @@ export default function HistoryPage() {
         </div>
       </div>
 
+      {loading && (<p className="text-sm text-gray-500 mb-2">Syncing from backend…</p>)}
+      {error && (
+        <div className="mb-3 rounded border border-red-300 bg-red-50 text-red-700 p-3 text-sm">
+          {error}
+        </div>
+      )}
+
       {/* Empty-state notice */}
       {isEmpty && (
         <div className="w-full mb-4 rounded-xl border border-yellow-200 bg-yellow-50 text-yellow-800 p-3">
@@ -152,7 +251,7 @@ export default function HistoryPage() {
       )}
 
       {/* Mini-cards for nature and steps (latest entry) */}
-      <MiniCards history={history} />
+      <MiniCards history={entries} />
 
       {/* Chart */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 mb-6 relative">
@@ -283,7 +382,7 @@ export default function HistoryPage() {
       {/* Weekly streaks */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 mb-6">
         <div className="font-semibold text-gray-800 mb-2">Weekly streaks</div>
-        <StreakBadges history={history} />
+        <StreakBadges history={entries} />
       </div>
 
       {/* List */}
@@ -371,8 +470,24 @@ export default function HistoryPage() {
               <button
                 type="button"
                 className="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700 shadow-[0_0_25px_rgba(220,38,38,0.45)]"
-                onClick={() => {
-                  removeEntry(pendingDelete);
+                onClick={async () => {
+                  if (!pendingDelete) return;
+                  // If we have backend IDs, try remote delete
+                  const id = idByDate?.get(pendingDelete);
+                  if (id) {
+                    try {
+                      const res = await fetch(`${API_URL}/${id}`, { method: "DELETE" });
+                      if (!res.ok) throw new Error("Failed to delete");
+                      setEntries((prev) => prev.filter((e) => e.date !== pendingDelete));
+                    } catch {
+                      // Fallback to local deletion
+                      removeEntry(pendingDelete);
+                      setEntries((prev) => prev.filter((e) => e.date !== pendingDelete));
+                    }
+                  } else {
+                    removeEntry(pendingDelete);
+                    setEntries((prev) => prev.filter((e) => e.date !== pendingDelete));
+                  }
                   setPendingDelete(null);
                 }}
               >
@@ -459,10 +574,42 @@ export default function HistoryPage() {
             </div>
             <div className="mt-4 flex items-center justify-end gap-3">
               <button className="px-4 py-2 rounded border" onClick={() => setEditing(null)}>Cancel</button>
-              <button className="px-4 py-2 rounded bg-blue-600 text-white" onClick={() => {
-                if (editing?.date) {
-                  const { date, ...rest } = editing;
-                  updateEntry(date, rest as Partial<DailyCheckIn>);
+              <button className="px-4 py-2 rounded bg-blue-600 text-white" onClick={async () => {
+                if (!editing?.date) { setEditing(null); return; }
+                const id = idByDate?.get(editing.date);
+                if (id) {
+                  // Remote update with fallback
+                  try {
+                    const existing: DailyStat = {
+                      id,
+                      date: editing.date,
+                      mood: 5,
+                      energy: 5,
+                      stress: 5,
+                      sleepHours: 7,
+                      timeInNatureMinutes: editing.natureMinutes ?? 0,
+                      steps: editing.steps ?? 0,
+                      screenTimeMinutes: typeof editing.screenTime === "number" ? editing.screenTime : null,
+                      exercises: (editing.exercise && editing.exercise.length)
+                        ? [{ type: editing.exercise[0] === "upper" ? "UpperBody" : editing.exercise[0] === "lower" ? "LowerBody" : editing.exercise[0] === "mobility" || editing.exercise[0] === "flexibility" ? "Mobility" : editing.exercise[0] === "cardio" ? "Cardio" : "StrengthTraining", durationMinutes: 30, intensity: 5 }]
+                        : [],
+                    };
+                    const payload = toPayload(editing, existing);
+                    const res = await fetch(`${API_URL}/${id}`, {
+                      method: "PUT",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify(payload),
+                    });
+                    if (!res.ok) throw new Error("Failed to update");
+                    // Update local entries view
+                    setEntries((prev) => prev.map((e) => (e.date === editing.date ? { ...editing } : e)));
+                  } catch {
+                    updateEntry(editing.date, editing as Partial<DailyCheckIn>);
+                    setEntries((prev) => prev.map((e) => (e.date === editing.date ? { ...editing } : e)));
+                  }
+                } else {
+                  updateEntry(editing.date, editing as Partial<DailyCheckIn>);
+                  setEntries((prev) => prev.map((e) => (e.date === editing.date ? { ...editing } : e)));
                 }
                 setEditing(null);
               }}>Save</button>
