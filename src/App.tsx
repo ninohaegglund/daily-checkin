@@ -11,7 +11,7 @@ import DailyCheckInPage from "./pages/DailyCheckInPage";
 function App() {
   return (
     
-    <div className="min-h-screen relative overflow-hidden">
+    <div className="min-h-screen relative overflow-hidden bg-gradient-to-b from-green-100 to-orange-100">
 
 
        {/* Hero Section */}
