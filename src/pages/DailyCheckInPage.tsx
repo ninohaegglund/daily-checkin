@@ -47,18 +47,15 @@ export default function DailyCheckInPage() {
   const [exerciseDuration, setExerciseDuration] = useState(30);
   const [exerciseIntensity, setExerciseIntensity] = useState(5);
 
-  // data
   const [stats, setStats] = useState<DailyStat[]>([]);
+  const [editingId, setEditingId] = useState<number | null>(null);
 
+  // Fetch all stats
   const fetchStats = async () => {
     try {
       setLoading(true);
       const res = await fetch(API_URL);
-
-      if (!res.ok) {
-        throw new Error("Failed to load stats");
-      }
-
+      if (!res.ok) throw new Error("Failed to load stats");
       const data = await res.json();
       setStats(data);
     } catch {
@@ -72,12 +69,14 @@ export default function DailyCheckInPage() {
     fetchStats();
   }, []);
 
+  // Submit (create or update)
   const submit = async () => {
     setError(null);
     setSubmitting(true);
 
     try {
       const payload = {
+        id: editingId ?? 0,
         date: new Date().toISOString(),
         mood,
         energy,
@@ -96,8 +95,11 @@ export default function DailyCheckInPage() {
         ]
       };
 
-      const res = await fetch(API_URL, {
-        method: "POST",
+      const method = editingId ? "PUT" : "POST";
+      const url = editingId ? `${API_URL}/${editingId}` : API_URL;
+
+      const res = await fetch(url, {
+        method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
@@ -107,7 +109,9 @@ export default function DailyCheckInPage() {
         throw new Error(body?.title ?? "Failed to save daily stat");
       }
 
+      setEditingId(null);
       await fetchStats();
+      resetForm();
     } catch (err) {
       setError(
         err instanceof Error
@@ -119,10 +123,57 @@ export default function DailyCheckInPage() {
     }
   };
 
+  const deleteStat = async (id: number) => {
+    setError(null);
+    try {
+      const res = await fetch(`${API_URL}/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete stat");
+      await fetchStats();
+    } catch {
+      setError("Could not delete the stat. Is the backend running?");
+    }
+  };
+
+  const startEdit = (stat: DailyStat) => {
+    setEditingId(stat.id);
+    setMood(stat.mood);
+    setEnergy(stat.energy);
+    setStress(stat.stress);
+    setSleepHours(stat.sleepHours);
+    setNatureMinutes(stat.timeInNatureMinutes);
+    setSteps(stat.steps);
+    setScreenTime(stat.screenTimeMinutes ?? "");
+    if (stat.exercises.length > 0) {
+      const ex = stat.exercises[0];
+      setExerciseType(ex.type);
+      setExerciseDuration(ex.durationMinutes);
+      setExerciseIntensity(ex.intensity);
+    } else {
+      setExerciseType("UpperBody");
+      setExerciseDuration(30);
+      setExerciseIntensity(5);
+    }
+  };
+
+  const resetForm = () => {
+    setEditingId(null);
+    setMood(5);
+    setEnergy(5);
+    setStress(5);
+    setSleepHours(8);
+    setNatureMinutes(30);
+    setSteps(5000);
+    setScreenTime("");
+    setExerciseType("UpperBody");
+    setExerciseDuration(30);
+    setExerciseIntensity(5);
+  };
+
   return (
     <div className="max-w-2xl mx-auto p-6 space-y-6">
       <h2 className="text-2xl font-semibold">Daily Check-In</h2>
 
+      {/* Form */}
       <div className="space-y-4">
         <Field label={`Mood: ${mood}`}>
           <input type="range" min={1} max={10} value={mood} onChange={e => setMood(+e.target.value)} />
@@ -188,20 +239,29 @@ export default function DailyCheckInPage() {
         <button
           onClick={submit}
           disabled={submitting}
-          className="w-full bg-black text-white py-2 rounded hover:bg-gray-800 transition
-                     disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full bg-black text-white py-2 rounded hover:bg-gray-800 transition disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {submitting ? "Saving…" : "Save Daily Check-In"}
+          {submitting ? "Saving…" : editingId ? "Update Daily Check-In" : "Save Daily Check-In"}
         </button>
+
+        {editingId && (
+          <button
+            onClick={resetForm}
+            className="w-full mt-2 bg-gray-200 text-black py-2 rounded hover:bg-gray-300 transition"
+          >
+            Cancel Edit
+          </button>
+        )}
       </div>
 
+      {/* Saved stats */}
       <div className="space-y-4">
         <h3 className="text-xl font-semibold">Saved Entries</h3>
 
         {loading && <p className="text-sm text-gray-500">Loading…</p>}
 
         {stats.map(stat => (
-          <div key={stat.id} className="border rounded p-4 space-y-1">
+          <div key={stat.id} className="border rounded p-4 space-y-1 flex flex-col gap-1">
             <div className="font-medium">{new Date(stat.date).toDateString()}</div>
             <div className="text-sm">Mood: {stat.mood}</div>
             <div className="text-sm">Energy: {stat.energy}</div>
@@ -217,6 +277,21 @@ export default function DailyCheckInPage() {
                 ))}
               </ul>
             )}
+
+            <div className="flex gap-2 mt-2">
+              <button
+                onClick={() => startEdit(stat)}
+                className="px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition text-sm"
+              >
+                Edit
+              </button>
+              <button
+                onClick={() => deleteStat(stat.id)}
+                className="px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700 transition text-sm"
+              >
+                Delete
+              </button>
+            </div>
           </div>
         ))}
       </div>
@@ -224,6 +299,7 @@ export default function DailyCheckInPage() {
   );
 }
 
+// Helper component
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-1">
