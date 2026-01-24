@@ -2,11 +2,11 @@ import CheckInForm from "./components/CheckInForm";
 import StatusPanel from "./components/StatusPanel";
 import StatusBars from "./components/StatusBars";
 import HistoryPage from "./pages/History";
-import CalmInsightsPage from "./pages/CalmInsights";
 import { Link, Routes, Route } from "react-router-dom";
 
 import Logo from "./components/Logo";
 import HeroQuote from "./components/HeroQuote";
+import DailyCheckInPage from "./pages/DailyCheckInPage";
 
 function App() {
   return (
@@ -55,7 +55,7 @@ function App() {
           <nav className="space-x-4">
             <Link to="/" className="text-white font-medium hover:underline">Home</Link>
             <Link to="/history" className="text-white font-medium hover:underline">History</Link>
-            <Link to="/calm" className="text-white font-medium hover:underline">Calm Insights</Link>
+            <Link to="/check-in" className="text-white font-medium hover:underline">API</Link>
           </nav>
         </header>
 
@@ -95,7 +95,7 @@ function App() {
         </section>
         <section className="mt-8 md:mt-12">
           <Routes>
-            <Route path="/calm" element={<CalmInsightsPage />} />
+            <Route path="/check-in" element={<DailyCheckInPage />} />
           </Routes>
         </section>
           
