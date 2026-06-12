@@ -1,100 +1,117 @@
+import { CalendarDays, HeartPulse, Leaf } from "lucide-react";
+import { Link, NavLink, Route, Routes } from "react-router-dom";
 import CheckInForm from "./components/CheckInForm";
-import StatusPanel from "./components/StatusPanel";
-import StatusBars from "./components/StatusBars";
-import HistoryPage from "./pages/History";
-import { Link, Routes, Route } from "react-router-dom";
-
-import Logo from "./components/Logo";
 import HeroQuote from "./components/HeroQuote";
+import Logo from "./components/Logo";
+import StatusBars from "./components/StatusBars";
+import StatusPanel from "./components/StatusPanel";
 import DailyCheckInPage from "./pages/DailyCheckInPage";
+import HistoryPage from "./pages/History";
+
+const navLinkClass = ({ isActive }: { isActive: boolean }) =>
+  isActive ? "nav-link nav-link--active" : "nav-link";
 
 function App() {
+  const todayLabel = new Intl.DateTimeFormat(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  }).format(new Date());
+
   return (
-    
-    <div className="min-h-screen relative overflow-hidden bg-gradient-to-b from-green-100 to-orange-100">
+    <div className="app-shell">
+      <section className="app-hero" aria-label="Daily check-in overview">
+        <video
+          className="hero-media hidden md:block"
+          src="/hero2.mp4"
+          poster="https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1600&q=80"
+          autoPlay
+          muted
+          loop
+          playsInline
+          aria-hidden
+        />
+        <img
+          src="https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1600&q=80"
+          alt=""
+          className="hero-media block md:hidden"
+        />
+        <div className="hero-overlay" />
 
-
-       {/* Hero Section */}
-      <div className="relative w-full h-96 md:h-[500px] lg:h-[600px] drop-shadow-lg">
-         
-          {(() => {
-            const videoSrc = "/hero2.mp4";
-            const poster = "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1600&q=80";
-            return (
-              <>
-                {/* show video on medium+ screens */}
-                <video
-                  className="hidden md:block absolute inset-0 w-full h-full object-cover"
-                  src={videoSrc}
-                  poster={poster}
-                  autoPlay
-                  muted
-                  loop
-                  playsInline
-                  aria-hidden
-                />
-                {/* fallback image for small screens */}
-                <img
-                  src={poster}
-                  alt="Hero"
-                  className="block md:hidden absolute inset-0 w-full h-full object-cover"
-                />
-              </>
-            );
-          })()}
-
-        {/* Overlay for darkening image */}
-        <div className="absolute inset-0 bg-black/50"></div>
-
-        {/* Header */}
-        <header className="w-full bg-transparent backdrop-blur-sm p-5 flex justify-between items-center sticky top-0 z-50 shadow-lg">
-          <a href="/" className="flex items-center">
+        <header className="app-header">
+          <Link to="/" className="brand-link" aria-label="Daily Check-In home">
             <Logo />
-          </a>
-          <nav className="space-x-4">
-            <Link to="/" className="text-white font-medium hover:underline">Home</Link>
-            <Link to="/history" className="text-white font-medium hover:underline">History</Link>
+          </Link>
+          <nav className="app-nav" aria-label="Primary navigation">
+            <NavLink to="/" className={navLinkClass} end>
+              Home
+            </NavLink>
+            <NavLink to="/history" className={navLinkClass}>
+              History
+            </NavLink>
           </nav>
         </header>
 
-        {/* Hero text */}
-        <div className="relative z-10 flex flex-col items-center justify-center h-full text-center px-4">
-          <h1 className="animate-fadeIn text-5xl md:text-6xl font-extrabold text-white drop-shadow-lg transition-transform duration-300 hover:scale-105">
-            Daily Check-In
-          </h1>
-          <p className="mt-4 text-xl md:text-2xl text-gray-200 drop-shadow-md max-w-2xl animate-fadeIn ">
-             Track your mood, sleep, energy, and stress today.
+        <div className="hero-content">
+          <span className="hero-kicker">
+            <HeartPulse className="h-4 w-4" />
+            Wellness dashboard
+          </span>
+          <h1>Daily Check-In</h1>
+          <p>
+            A calm place to read today's mood, sleep, stress, energy, movement,
+            and time outside.
           </p>
+          <div className="hero-chips" aria-label="Dashboard highlights">
+            <span>
+              <CalendarDays className="h-4 w-4" />
+              {todayLabel}
+            </span>
+            <span>
+              <Leaf className="h-4 w-4" />
+              Mindful tracking
+            </span>
+          </div>
           <HeroQuote />
         </div>
-      </div>
+      </section>
 
-      {/* Main content */}
-        <section className="mt-8 md:mt-12">
-          <div className="mx-auto max-w-6xl px-4 sm:px-6">
-            <Routes>
-              <Route
-                path="/"
-                element={
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
-                    <div className="lg:col-span-2 flex flex-col gap-6">
-                      <CheckInForm />
-                    </div>
-                    <div className="lg:col-span-1">
-                      <StatusBars />
-                      <StatusPanel />
-                    </div>
+      <main className="main-content">
+        <div className="dashboard-container">
+          <Routes>
+            <Route
+              path="/"
+              element={
+                <div className="dashboard-grid">
+                  <div className="dashboard-primary">
+                    <CheckInForm />
                   </div>
-                }
-              />
-              <Route path="/history" element={<HistoryPage />} />
-                <Route path="/api" element={<DailyCheckInPage />} />
-            </Routes>
-            
-          </div>
-        </section>
-    
-          
+                  <aside className="dashboard-sidebar" aria-label="Status dashboard">
+                    <StatusBars />
+                    <StatusPanel />
+                  </aside>
+                </div>
+              }
+            />
+            <Route
+              path="/history"
+              element={
+                <div className="dashboard-single">
+                  <HistoryPage />
+                </div>
+              }
+            />
+            <Route
+              path="/api"
+              element={
+                <div className="dashboard-single">
+                  <DailyCheckInPage />
+                </div>
+              }
+            />
+          </Routes>
+        </div>
+      </main>
     </div>
   );
 }

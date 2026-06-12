@@ -1,33 +1,12 @@
 import { useEffect, useState } from "react";
+import {
+  STATS_API_URL,
+  type BackendDailyStat,
+  type BackendExerciseType,
+} from "../api/stats";
 
-type ExerciseType =
-  | "UpperBody"
-  | "LowerBody"
-  | "Mobility"
-  | "Cardio"
-  | "StrengthTraining";
-
-interface Exercise {
-  type: ExerciseType;
-  durationMinutes: number;
-  intensity: number;
-  notes?: string;
-}
-
-interface DailyStat {
-  id: number;
-  date: string;
-  mood: number;
-  energy: number;
-  stress: number;
-  sleepHours: number;
-  timeInNatureMinutes: number;
-  steps: number;
-  screenTimeMinutes?: number | null;
-  exercises: Exercise[];
-}
-
-const API_URL = "https://localhost:7016/api/stats";
+type ExerciseType = BackendExerciseType;
+type DailyStat = BackendDailyStat;
 
 export default function DailyCheckInPage() {
   // UI state
@@ -54,7 +33,7 @@ export default function DailyCheckInPage() {
   const fetchStats = async () => {
     try {
       setLoading(true);
-      const res = await fetch(API_URL);
+      const res = await fetch(STATS_API_URL);
       if (!res.ok) throw new Error("Failed to load stats");
       const data = await res.json();
       setStats(data);
@@ -96,7 +75,7 @@ export default function DailyCheckInPage() {
       };
 
       const method = editingId ? "PUT" : "POST";
-      const url = editingId ? `${API_URL}/${editingId}` : API_URL;
+      const url = editingId ? `${STATS_API_URL}/${editingId}` : STATS_API_URL;
 
       const res = await fetch(url, {
         method,
@@ -126,7 +105,7 @@ export default function DailyCheckInPage() {
   const deleteStat = async (id: number) => {
     setError(null);
     try {
-      const res = await fetch(`${API_URL}/${id}`, { method: "DELETE" });
+      const res = await fetch(`${STATS_API_URL}/${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Failed to delete stat");
       await fetchStats();
     } catch {
@@ -241,7 +220,7 @@ export default function DailyCheckInPage() {
           disabled={submitting}
           className="w-full bg-black text-white py-2 rounded hover:bg-gray-800 transition disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {submitting ? "Saving…" : editingId ? "Update Daily Check-In" : "Save Daily Check-In"}
+          {submitting ? "Saving..." : editingId ? "Update Daily Check-In" : "Save Daily Check-In"}
         </button>
 
         {editingId && (
@@ -258,7 +237,7 @@ export default function DailyCheckInPage() {
       <div className="space-y-4">
         <h3 className="text-xl font-semibold">Saved Entries</h3>
 
-        {loading && <p className="text-sm text-gray-500">Loading…</p>}
+        {loading && <p className="text-sm text-gray-500">Loading...</p>}
 
         {stats.map(stat => (
           <div key={stat.id} className="border rounded p-4 space-y-1 flex flex-col gap-1">
@@ -272,7 +251,7 @@ export default function DailyCheckInPage() {
               <ul className="mt-2 list-disc list-inside text-sm">
                 {stat.exercises.map((ex, i) => (
                   <li key={i}>
-                    {ex.type} – {ex.durationMinutes} min (intensity {ex.intensity})
+                    {ex.type} - {ex.durationMinutes} min (intensity {ex.intensity})
                   </li>
                 ))}
               </ul>

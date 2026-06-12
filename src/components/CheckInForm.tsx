@@ -1,122 +1,115 @@
-import React from "react";
+import {
+  Activity,
+  Dumbbell,
+  Footprints,
+  Leaf,
+  Monitor,
+  Moon,
+  Save,
+  Smile,
+  Zap,
+} from "lucide-react";
+import {
+  useState,
+  type CSSProperties,
+  type FormEvent,
+  type ReactNode,
+} from "react";
+import {
+  EXERCISE_LABELS,
+  EXERCISE_OPTIONS,
+  STATS_API_URL,
+  energyFromNumber,
+  moodFromNumber,
+  sleepFromHours,
+  stressFromNumber,
+  toBackendExerciseType,
+} from "../api/stats";
 import { useHealthStore } from "../store/healthStore";
 import type { DailyCheckIn, ExerciseType } from "../types";
 import TagPicker from "./TagPicker";
 
-const API_URL = "https://localhost:7016/api/stats";
-
-
-
 export default function CheckInForm() {
   const { checkIn, setCheckIn, saveCheckIn, generateStatuses } = useHealthStore();
-  const [screenTime, setScreenTime] = React.useState("");
-  const [submitting, setSubmitting] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
+  const [screenTime, setScreenTime] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Numeric UI states for backend mapping
-  const [moodNum, setMoodNum] = React.useState(5);
-  const [energyNum, setEnergyNum] = React.useState(5);
-  const [stressNum, setStressNum] = React.useState(5);
-  const [sleepHours, setSleepHours] = React.useState(8);
-  const [exerciseTypes, setExerciseTypes] = React.useState<ExerciseType[]>([]);
-  const [exerciseIntensity, setExerciseIntensity] = React.useState(5);
+  const [moodNum, setMoodNum] = useState(5);
+  const [energyNum, setEnergyNum] = useState(5);
+  const [stressNum, setStressNum] = useState(5);
+  const [sleepHours, setSleepHours] = useState(8);
+  const [exerciseTypes, setExerciseTypes] = useState<ExerciseType[]>([]);
+  const [exerciseIntensity, setExerciseIntensity] = useState(5);
 
   const handleChange = <K extends keyof DailyCheckIn>(field: K, value: DailyCheckIn[K]) => {
     setCheckIn({ ...checkIn, [field]: value } as DailyCheckIn);
   };
 
-  // Map numeric sliders into store-friendly categories
-  const setMoodFromNum = (v: number) => {
-    setMoodNum(v);
-    const moodStr: DailyCheckIn["mood"] = v <= 3 ? "low" : v <= 7 ? "neutral" : "good";
-    handleChange("mood", moodStr);
-  };
-  const setEnergyFromNum = (v: number) => {
-    setEnergyNum(v);
-    const energyStr: DailyCheckIn["energy"] = v <= 3 ? "low" : v <= 7 ? "medium" : "high";
-    handleChange("energy", energyStr);
-  };
-  const setStressFromNum = (v: number) => {
-    setStressNum(v);
-    const stressStr: DailyCheckIn["stress"] = v <= 3 ? "low" : v <= 7 ? "medium" : "high";
-    handleChange("stress", stressStr);
-  };
-  const setSleepFromHours = (hrs: number) => {
-    setSleepHours(hrs);
-    const sleepStr: DailyCheckIn["sleep"] = hrs <= 6 ? "poor" : hrs === 7 ? "ok" : "good";
-    handleChange("sleep", sleepStr);
+  const setMoodFromNum = (value: number) => {
+    setMoodNum(value);
+    handleChange("mood", moodFromNumber(value));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const setEnergyFromNum = (value: number) => {
+    setEnergyNum(value);
+    handleChange("energy", energyFromNumber(value));
+  };
+
+  const setStressFromNum = (value: number) => {
+    setStressNum(value);
+    handleChange("stress", stressFromNumber(value));
+  };
+
+  const setSleepFromHours = (hours: number) => {
+    setSleepHours(hours);
+    handleChange("sleep", sleepFromHours(hours));
+  };
+
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
     setError(null);
     setSubmitting(true);
 
     const parsedScreenTime = screenTime ? Number(screenTime) : undefined;
-
-    // Helper mappers to translate local strings to backend numeric scales
-    const mapMood = () => moodNum;
-    const mapEnergy = () => energyNum;
-    const mapStress = () => stressNum;
-    const mapSleepHours = () => sleepHours;
-    const mapExerciseType = (t: ExerciseType): "UpperBody" | "LowerBody" | "Mobility" | "Cardio" | "StrengthTraining" => {
-      switch (t) {
-        case "upper":
-          return "UpperBody";
-        case "lower":
-          return "LowerBody";
-        case "mobility":
-        case "flexibility":
-          return "Mobility";
-        case "cardio":
-          return "Cardio";
-        case "strength":
-          return "StrengthTraining";
-        default:
-          return "Mobility";
-      }
-    };
-
-    // Build backend payload based on current check-in
     const payload = {
       id: 0,
       date: new Date().toISOString(),
-      mood: mapMood(),
-      energy: mapEnergy(),
-      stress: mapStress(),
-      sleepHours: mapSleepHours(),
+      mood: moodNum,
+      energy: energyNum,
+      stress: stressNum,
+      sleepHours,
       timeInNatureMinutes: checkIn.natureMinutes ?? 0,
       steps: checkIn.steps ?? 0,
       screenTimeMinutes: parsedScreenTime ?? null,
-      exercises: (exerciseTypes.length ? exerciseTypes : []).map((t) => ({
-        type: mapExerciseType(t),
-        durationMinutes: 30, // default duration
+      exercises: exerciseTypes.map((type) => ({
+        type: toBackendExerciseType(type),
+        durationMinutes: 30,
         intensity: exerciseIntensity,
         notes: undefined,
       })),
     };
 
     try {
-      const res = await fetch(API_URL, {
+      const res = await fetch(STATS_API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
       if (!res.ok) {
-        // Try to read error message from backend and fall back locally
         let message = "Failed to save to backend";
         try {
           const body = await res.json();
           message = body?.title ?? message;
-        } catch {}
+        } catch {
+          // Keep the fallback message when the backend response is not JSON.
+        }
         throw new Error(message);
       }
 
-      // Backend success: still generate statuses locally
       generateStatuses();
     } catch (err) {
-      // Fallback to local save if backend is unavailable
       saveCheckIn({ ...checkIn, screenTime: parsedScreenTime, exercise: exerciseTypes });
       generateStatuses();
       if (err instanceof Error) {
@@ -130,205 +123,244 @@ export default function CheckInForm() {
     }
   };
 
-  // removed mood/stress/energy label arrays; using numeric sliders
-  const exerciseOptions: ExerciseType[] = [
-    "cardio",
-    "strength",
-    "upper",
-    "lower",
-    "mobility",
-    "flexibility",
-  ];
-  const exerciseLabels: Record<ExerciseType, string> = {
-    cardio: "Cardio",
-    strength: "Strength Training",
-    upper: "Upper Body",
-    lower: "Lower Body",
-    mobility: "Mobility",
-    flexibility: "Flexibility",
-  };
-
-  // helper removed (not used)
-
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="space-y-6 bg-white animate-fadeIn p-10 rounded-2xl shadow-xl w-full max-w-2xl border border-white/40"
-    >
-      <h2 className="text-2xl font-bold mb-4 text-center">Today's Check-In</h2>
-
-
-      {/* Mood slider (1-10) */}
-      <div className="flex flex-col gap-3 p-4 rounded-xl bg-white shadow-sm">
-        <div className="flex items-center justify-between">
-          <label className="font-medium text-gray-700 text-sm uppercase tracking-wide">Mood</label>
-          <span className="text-sm text-gray-600">{moodNum}</span>
+    <form onSubmit={handleSubmit} className="dashboard-card checkin-card animate-fadeIn">
+      <div className="panel-heading">
+        <span className="panel-kicker">
+          <Activity className="h-4 w-4" />
+          Daily rhythm
+        </span>
+        <div>
+          <h2>Today's Check-In</h2>
+          <p>Capture the signals that shape how today feels.</p>
         </div>
-        <input
-          type="range"
-          min={1}
-          max={10}
-          step={1}
+      </div>
+
+      <div className="checkin-section">
+        <MetricSlider
+          icon={<Smile className="h-5 w-5" />}
+          label="Mood"
           value={moodNum}
-          onChange={(e) => setMoodFromNum(Number(e.target.value))}
-          className="w-full accent-emerald-500"
-        />
-      </div>
-
-      {/* Stress slider (1-10) */}
-      <div className="flex flex-col gap-3 p-4 rounded-xl bg-white shadow-sm">
-        <div className="flex items-center justify-between">
-          <label className="font-medium text-gray-700 text-sm uppercase tracking-wide">Stress</label>
-          <span className="text-sm text-gray-600">{stressNum}</span>
-        </div>
-        <input
-          type="range"
+          valueLabel={moodFromNumber(moodNum)}
           min={1}
           max={10}
-          step={1}
+          onChange={setMoodFromNum}
+        />
+
+        <MetricSlider
+          icon={<Activity className="h-5 w-5" />}
+          label="Stress"
           value={stressNum}
-          onChange={(e) => setStressFromNum(Number(e.target.value))}
-          className="w-full accent-emerald-500"
-        />
-      </div>
-
-      {/* Energy slider (1-10) */}
-      <div className="flex flex-col gap-3 p-4 rounded-xl bg-white shadow-sm">
-        <div className="flex items-center justify-between">
-          <label className="font-medium text-gray-700 text-sm uppercase tracking-wide">Energy</label>
-          <span className="text-sm text-gray-600">{energyNum}</span>
-        </div>
-        <input
-          type="range"
+          valueLabel={stressFromNumber(stressNum)}
           min={1}
           max={10}
-          step={1}
-          value={energyNum}
-          onChange={(e) => setEnergyFromNum(Number(e.target.value))}
-          className="w-full accent-emerald-500"
+          onChange={setStressFromNum}
         />
-      </div>
 
-  
+        <MetricSlider
+          icon={<Zap className="h-5 w-5" />}
+          label="Energy"
+          value={energyNum}
+          valueLabel={energyFromNumber(energyNum)}
+          min={1}
+          max={10}
+          onChange={setEnergyFromNum}
+        />
 
-      {/* Time in nature (minutes) */}
-      <div className="flex flex-col gap-3 p-4 rounded-xl bg-white shadow-sm">
-        <div className="flex items-center justify-between">
-          <label className="font-medium text-gray-700 text-sm uppercase tracking-wide">Time in nature</label>
-          <span className="text-sm text-gray-600">{checkIn.natureMinutes ?? 0} min</span>
-        </div>
-        <input
-          type="range"
+        <MetricSlider
+          icon={<Leaf className="h-5 w-5" />}
+          label="Time in nature"
+          value={checkIn.natureMinutes ?? 0}
+          valueLabel={`${checkIn.natureMinutes ?? 0} min`}
           min={0}
           max={180}
           step={5}
-          value={checkIn.natureMinutes ?? 0}
-          onChange={(e) => handleChange("natureMinutes", Number(e.target.value))}
-          className="w-full accent-emerald-500"
-        />
-        <div className="flex justify-between text-xs text-gray-500">
-          <span>0</span>
-          <span>60</span>
-          <span>120</span>
-          <span>180</span>
-        </div>
-      </div>
-
-          {/* Sleep hours */}
-      <div className="flex flex-col gap-3 p-4 rounded-xl bg-white shadow-sm">
-        <div className="flex items-center justify-between">
-          <label className="font-medium text-gray-700 text-sm uppercase tracking-wide">Sleep hours</label>
-          <span className="text-sm text-gray-600">{sleepHours}</span>
-        </div>
-        <input
-          type="number"
-          min={0}
-          max={24}
-          step={0.5}
-          value={sleepHours}
-          onChange={(e) => setSleepFromHours(Number(e.target.value))}
-          className="p-3 rounded-lg border border-gray-300 text-lg focus:outline-none focus:ring-2 focus:ring-green-400"
+          marks={["0", "60", "120", "180"]}
+          onChange={(value) => handleChange("natureMinutes", value)}
         />
       </div>
 
-      {/* Exercise controls: multiple types, shared duration + intensity */}
-      <div className="flex flex-col gap-3 p-4 rounded-xl bg-white shadow-sm">
-        <label className="font-medium text-gray-700 text-sm uppercase tracking-wide">Exercise</label>
-        <div className="flex flex-col gap-2">
-          <div>
-            <label className="text-xs text-gray-600">Types (you can add multiple)</label>
+      <div className="checkin-section checkin-section--compact">
+        <FormField
+          icon={<Moon className="h-5 w-5" />}
+          label="Sleep hours"
+          value={`${sleepHours} h`}
+        >
+          <input
+            type="number"
+            min={0}
+            max={24}
+            step={0.5}
+            value={sleepHours}
+            onChange={(event) => setSleepFromHours(Number(event.target.value))}
+            className="wellness-input"
+          />
+        </FormField>
+
+        <FormField
+          icon={<Dumbbell className="h-5 w-5" />}
+          label="Exercise"
+          value={`Intensity ${exerciseIntensity}`}
+        >
+          <div className="exercise-stack">
             <TagPicker
-              options={exerciseOptions}
+              options={EXERCISE_OPTIONS}
               value={exerciseTypes}
-              onChange={(next) => setExerciseTypes(next as ExerciseType[])}
-              labelFormatter={(opt) => exerciseLabels[opt as ExerciseType] ?? opt}
+              onChange={setExerciseTypes}
+              labelFormatter={(option) => EXERCISE_LABELS[option]}
             />
-          </div>
-          {/* Duration removed; backend will use a default */}
-          <div>
-            <label className="text-xs text-gray-600">Intensity: {exerciseIntensity}</label>
-            <input
-              type="range"
+            <MetricSlider
+              label="Intensity"
+              value={exerciseIntensity}
+              valueLabel={`${exerciseIntensity}/10`}
               min={1}
               max={10}
-              step={1}
-              value={exerciseIntensity}
-              onChange={(e) => setExerciseIntensity(Number(e.target.value))}
-              className="w-full accent-emerald-500"
+              compact
+              onChange={setExerciseIntensity}
             />
           </div>
-        </div>
+        </FormField>
+
+        <FormField
+          icon={<Footprints className="h-5 w-5" />}
+          label="Steps"
+          value={(checkIn.steps ?? 0).toLocaleString()}
+          helper="Typical range: 0-20,000 steps"
+        >
+          <input
+            type="number"
+            min={0}
+            max={20000}
+            inputMode="numeric"
+            value={checkIn.steps ?? 0}
+            onChange={(event) => {
+              const steps = Math.max(0, Math.min(20000, Number(event.target.value)));
+              handleChange("steps", steps);
+            }}
+            placeholder="e.g., 8000"
+            className="wellness-input"
+          />
+        </FormField>
+
+        <FormField
+          icon={<Monitor className="h-5 w-5" />}
+          label="Screen time"
+          value={screenTime ? `${screenTime} min` : "Optional"}
+          helper="Minutes of screen time today"
+        >
+          <input
+            type="number"
+            min={0}
+            inputMode="numeric"
+            value={screenTime}
+            onChange={(event) => setScreenTime(event.target.value)}
+            placeholder="e.g., 120"
+            className="wellness-input"
+          />
+        </FormField>
       </div>
 
-      {/* Steps input */}
-      <div className="flex flex-col gap-3 p-4 rounded-xl bg-white shadow-sm">
-        <label className="font-medium text-gray-700 text-sm uppercase tracking-wide">Steps</label>
-        <input
-          type="number"
-          min={0}
-          max={20000}
-          inputMode="numeric"
-          value={checkIn.steps ?? 0}
-          onChange={(e) => {
-            const n = Math.max(0, Math.min(20000, Number(e.target.value)));
-            handleChange("steps", n);
-          }}
-          placeholder="e.g., 8000"
-          className="p-3 rounded-lg border border-gray-300 text-lg focus:outline-none focus:ring-2 focus:ring-green-400"
-        />
-        <p className="text-xs text-gray-500">Typical range: 0–20,000 steps</p>
-      </div>
-
-      {/* Screen Time input (not shown in status overview) */}
-      <div className="flex flex-col gap-3 p-4 rounded-xl bg-white shadow-sm">
-        <label className="font-medium text-gray-700 text-sm uppercase tracking-wide">Screen Time (minutes, optional)</label>
-        <input
-          type="number"
-          min={0}
-          inputMode="numeric"
-          value={screenTime}
-          onChange={(e) => setScreenTime(e.target.value)}
-          placeholder="e.g., 120"
-          className="p-3 rounded-lg border border-gray-300 text-lg focus:outline-none focus:ring-2 focus:ring-green-400"
-        />
-        <p className="text-xs text-gray-500">How many minutes of screen time today?</p>
-      </div>
-
-   
-
-     {error && (
-        <div className="rounded border border-red-300 bg-red-50 text-red-700 p-3 text-sm">
+      {error && (
+        <div className="form-alert" role="status">
           {error}
         </div>
       )}
 
-     <button
-        type="submit"
-        disabled={submitting}
-        className="mt-6 w-full px-6 py-4 bg-linear-to-r from-green-400 to-emerald-500 text-white text-lg font-semibold rounded-xl shadow-md hover:scale-[1.02] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        {submitting ? "Saving…" : "Save Today’s Status"}
-    </button>
+      <button type="submit" disabled={submitting} className="primary-action">
+        <Save className="h-5 w-5" />
+        {submitting ? "Saving..." : "Save Today's Status"}
+      </button>
     </form>
+  );
+}
+
+type RangeStyle = CSSProperties & {
+  "--range-progress": string;
+};
+
+type MetricSliderProps = {
+  label: string;
+  value: number;
+  valueLabel: string;
+  min: number;
+  max: number;
+  step?: number;
+  onChange: (value: number) => void;
+  icon?: ReactNode;
+  marks?: string[];
+  compact?: boolean;
+};
+
+function MetricSlider({
+  label,
+  value,
+  valueLabel,
+  min,
+  max,
+  step = 1,
+  onChange,
+  icon,
+  marks,
+  compact = false,
+}: MetricSliderProps) {
+  const progress = ((value - min) / (max - min)) * 100;
+  const rangeStyle: RangeStyle = {
+    "--range-progress": `${Math.max(0, Math.min(100, progress))}%`,
+  };
+
+  return (
+    <section className={compact ? "metric-row metric-row--compact" : "metric-row"}>
+      <div className="metric-row__header">
+        <div className="metric-row__label">
+          {icon && <span className="metric-row__icon">{icon}</span>}
+          <span>{label}</span>
+        </div>
+        <span className="metric-row__value">{valueLabel}</span>
+      </div>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(event) => onChange(Number(event.target.value))}
+        className="wellness-range"
+        style={rangeStyle}
+        aria-label={label}
+      />
+      {marks && (
+        <div className="range-marks">
+          {marks.map((mark) => (
+            <span key={mark}>{mark}</span>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+type FormFieldProps = {
+  icon: ReactNode;
+  label: string;
+  value: string;
+  helper?: string;
+  children: ReactNode;
+};
+
+function FormField({ icon, label, value, helper, children }: FormFieldProps) {
+  return (
+    <section className="form-field">
+      <div className="form-field__meta">
+        <span className="form-field__icon">{icon}</span>
+        <div>
+          <div className="form-field__title">{label}</div>
+          {helper && <p>{helper}</p>}
+        </div>
+      </div>
+      <div className="form-field__control">
+        <span className="form-field__value">{value}</span>
+        {children}
+      </div>
+    </section>
   );
 }

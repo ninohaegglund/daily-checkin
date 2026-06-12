@@ -54,7 +54,7 @@ const quotes: Quote[] = [
     source: "(paraphrase)",
   },
   {
-    text: "You have power over your mind—not outside events. Realize this, and you will find strength.",
+    text: "You have power over your mind, not outside events. Realize this, and you will find strength.",
     author: "Marcus Aurelius",
     source: "Meditations",
   },
@@ -135,12 +135,12 @@ export default function HeroQuote() {
   }, []);
 
   return (
-    <div className="mt-6 max-w-2xl text-center mx-auto animate-fadeIn">
-      <p className="text-lg md:text-xl text-gray-200 italic">
-        “{quote.text}”
+    <div className="hero-quote animate-fadeIn">
+      <p>
+        "{quote.text}"
       </p>
-      <p className="mt-2 text-sm md:text-base text-gray-300">
-        — {quote.author}{quote.source ? `, ${quote.source}` : ""}
+      <p>
+        - {quote.author}{quote.source ? `, ${quote.source}` : ""}
       </p>
     </div>
   );

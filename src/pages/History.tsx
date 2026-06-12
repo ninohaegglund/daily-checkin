@@ -1,13 +1,20 @@
 import { useHealthStore } from "../store/healthStore";
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { Trash2, Skull, X } from "lucide-react";
-import type { DailyCheckIn, ExerciseType } from "../types";
+import { Trash2, TriangleAlert, X } from "lucide-react";
+import type { DailyCheckIn } from "../types";
 import TagPicker from "../components/TagPicker";
-
-const API_URL = "https://localhost:7016/api/stats";
+import {
+  EXERCISE_LABELS,
+  EXERCISE_OPTIONS,
+  STATS_API_URL,
+  fromBackendStat,
+  toBackendStat,
+  type BackendDailyStat,
+} from "../api/stats";
 
 type MetricKey = "sleep" | "mood" | "stress" | "energy" | "nature" | "steps";
+type RangeOption = "7" | "14" | "30" | "all";
 
 const metricLabel: Record<MetricKey, string> = {
   sleep: "Sleep",
@@ -46,6 +53,12 @@ const toScore = (k: MetricKey, v: string | number): number => {
 const formatDateShort = (iso?: string) =>
   iso ? new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "";
 
+const getMetricValue = (entry: DailyCheckIn, key: MetricKey): string | number => {
+  if (key === "nature") return entry.natureMinutes ?? 0;
+  if (key === "steps") return entry.steps ?? 0;
+  return entry[key];
+};
+
 export default function HistoryPage() {
   const { history, removeEntry } = useHealthStore();
   const { updateEntry } = useHealthStore();
@@ -54,7 +67,7 @@ export default function HistoryPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [metric, setMetric] = useState<MetricKey>("mood");
-  const [range, setRange] = useState<"7" | "14" | "30" | "all">("7");
+  const [range, setRange] = useState<RangeOption>("7");
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
   const [showAll, setShowAll] = useState<boolean>(false);
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
@@ -62,77 +75,17 @@ export default function HistoryPage() {
   const [editing, setEditing] = useState<DailyCheckIn | null>(null);
   const isEmpty = entries.length === 0;
 
-  // Helpers to convert between backend stats and local DailyCheckIn
-  type DailyStat = {
-    id: number;
-    date: string;
-    mood: number;
-    energy: number;
-    stress: number;
-    sleepHours: number;
-    timeInNatureMinutes: number;
-    steps: number;
-    screenTimeMinutes?: number | null;
-    exercises: Array<{ type: "UpperBody" | "LowerBody" | "Mobility" | "Cardio" | "StrengthTraining"; durationMinutes: number; intensity: number; notes?: string }>;
-  };
-
-  const moodStr = (n: number): DailyCheckIn["mood"] => (n <= 3 ? "low" : n <= 7 ? "neutral" : "good");
-  const energyStr = (n: number): DailyCheckIn["energy"] => (n <= 3 ? "low" : n <= 7 ? "medium" : "high");
-  const stressStr = (n: number): DailyCheckIn["stress"] => (n <= 3 ? "low" : n <= 7 ? "medium" : "high");
-  const sleepStr = (hrs: number): DailyCheckIn["sleep"] => (hrs <= 6 ? "poor" : hrs === 7 ? "ok" : "good");
-  const exTag = (t: DailyStat["exercises"][number]["type"]): ExerciseType => {
-    switch (t) {
-      case "UpperBody": return "upper";
-      case "LowerBody": return "lower";
-      case "Mobility": return "mobility";
-      case "Cardio": return "cardio";
-      case "StrengthTraining": return "strength";
-      default: return "mobility";
-    }
-  };
-
-  const toCheckIn = (s: DailyStat): DailyCheckIn => ({
-    date: s.date,
-    mood: moodStr(s.mood),
-    energy: energyStr(s.energy),
-    stress: stressStr(s.stress),
-    sleep: sleepStr(s.sleepHours),
-    natureMinutes: s.timeInNatureMinutes,
-    steps: s.steps,
-    screenTime: s.screenTimeMinutes ?? undefined,
-    exercise: s.exercises?.length ? s.exercises.map((ex) => exTag(ex.type)) : [],
-  });
-
-  const toPayload = (d: DailyCheckIn, existing?: DailyStat): DailyStat => ({
-    id: existing?.id ?? 0,
-    date: d.date ?? new Date().toISOString(),
-    mood: d.mood === "low" ? 3 : d.mood === "neutral" ? 5 : 8,
-    energy: d.energy === "low" ? 3 : d.energy === "medium" ? 6 : 9,
-    stress: d.stress === "low" ? 3 : d.stress === "medium" ? 6 : 9,
-    sleepHours: d.sleep === "poor" ? 5 : d.sleep === "ok" ? 7 : 8,
-    timeInNatureMinutes: d.natureMinutes ?? 0,
-    steps: d.steps ?? 0,
-    screenTimeMinutes: typeof d.screenTime === "number" ? d.screenTime : null,
-    exercises: (d.exercise && d.exercise.length)
-      ? d.exercise.map((t) => ({
-          type: t === "upper" ? "UpperBody" : t === "lower" ? "LowerBody" : t === "mobility" || t === "flexibility" ? "Mobility" : t === "cardio" ? "Cardio" : "StrengthTraining",
-          durationMinutes: 30,
-          intensity: 5,
-        }))
-      : [],
-  });
-
   useEffect(() => {
     let canceled = false;
     const load = async () => {
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch(API_URL);
+        const res = await fetch(STATS_API_URL);
         if (!res.ok) throw new Error("Failed to load stats");
-        const data: DailyStat[] = await res.json();
+        const data: BackendDailyStat[] = await res.json();
         if (canceled) return;
-        const converted = data.map(toCheckIn);
+        const converted = data.map(fromBackendStat);
         setEntries(converted);
         setIdByDate(new Map(data.map((s) => [s.date, s.id])));
       } catch (e) {
@@ -167,7 +120,7 @@ export default function HistoryPage() {
   const xStep = n > 1 ? innerW / (n - 1) : 0;
 
   const points = sliced.map((e, i) => {
-    const val = metric === "nature" ? (e.natureMinutes ?? 0) : metric === "steps" ? (e.steps ?? 0) : (e[metric] as any);
+    const val = getMetricValue(e, metric);
     const score = toScore(metric, val); // 1..3
     const y = padding + innerH - ((score - 1) / 2) * innerH; // map 1..3 to bottom..top
     const x = padding + i * xStep;
@@ -181,14 +134,14 @@ export default function HistoryPage() {
     sliced.length === 0
       ? 0
       : sliced.reduce((acc, e) => {
-          const val = metric === "nature" ? (e.natureMinutes ?? 0) : metric === "steps" ? (e.steps ?? 0) : (e[metric] as any);
+          const val = getMetricValue(e, metric);
           return acc + toScore(metric, val);
         }, 0) / sliced.length; // 1..3
   const avgY = padding + innerH - ((avg - 1) / 2) * innerH;
 
   const pointsFor = (m: MetricKey) => {
     const pts = sliced.map((e, i) => {
-      const val = m === "nature" ? (e.natureMinutes ?? 0) : m === "steps" ? (e.steps ?? 0) : (e[m] as any);
+      const val = getMetricValue(e, m);
       const score = toScore(m, val);
       const y = padding + innerH - ((score - 1) / 2) * innerH;
       const x = padding + i * xStep;
@@ -199,7 +152,7 @@ export default function HistoryPage() {
   };
 
   return (
-    <div className="w-full bg-white/80 animate-fadeIn backdrop-blur rounded-2xl shadow-lg p-6 border border-white/40">
+    <div className="dashboard-card history-card animate-fadeIn">
       <div className="flex items-center justify-between gap-4 mb-4">
         <h2 className="text-xl font-bold">History</h2>
         <div className="flex items-center gap-3">
@@ -225,7 +178,7 @@ export default function HistoryPage() {
           </label>
           <select
             value={range}
-            onChange={(e) => setRange(e.target.value as any)}
+            onChange={(e) => setRange(e.target.value as RangeOption)}
             className="p-2 rounded-md border border-gray-300 text-sm"
           >
             <option value="7">Last 7</option>
@@ -236,7 +189,7 @@ export default function HistoryPage() {
         </div>
       </div>
 
-      {loading && (<p className="text-sm text-gray-500 mb-2">Syncing from backend…</p>)}
+      {loading && (<p className="text-sm text-gray-500 mb-2">Syncing from backend...</p>)}
       {error && (
         <div className="mb-3 rounded border border-red-300 bg-red-50 text-red-700 p-3 text-sm">
           {error}
@@ -245,7 +198,7 @@ export default function HistoryPage() {
 
       {/* Empty-state notice */}
       {isEmpty && (
-        <div className="w-full mb-4 rounded-xl border border-yellow-200 bg-yellow-50 text-yellow-800 p-3">
+        <div className="w-full mb-4 rounded-lg border border-yellow-200 bg-yellow-50 text-yellow-800 p-3">
           No saved check-ins yet. Save today's status to see your history here.
         </div>
       )}
@@ -254,7 +207,7 @@ export default function HistoryPage() {
       <MiniCards history={entries} />
 
       {/* Chart */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 mb-6 relative">
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4 mb-6 relative">
         <div className="flex items-center justify-between mb-2">
           <div className="font-semibold text-gray-800">{metricLabel[metric]} trend</div>
           <div className="text-xs text-gray-500">Higher is better</div>
@@ -330,11 +283,7 @@ export default function HistoryPage() {
 
             const score = toScore(
               metric,
-              metric === "nature"
-                ? (sliced[hoverIndex!]?.natureMinutes ?? 0)
-                : metric === "steps"
-                ? (sliced[hoverIndex!]?.steps ?? 0)
-                : (sliced[hoverIndex!]?.[metric] as any)
+              getMetricValue(sliced[hoverIndex], metric)
             );
 
             return (
@@ -348,7 +297,7 @@ export default function HistoryPage() {
                   {metricLabel[metric]}
                 </text>
                 <text x={dx + 8} y={rectY + 28} className="fill-gray-700" fontSize={12}>
-                  {formatDateShort(sliced[hoverIndex!]?.date)} · Score {score}
+                  {formatDateShort(sliced[hoverIndex!]?.date)} - Score {score}
                 </text>
               </g>
             );
@@ -380,7 +329,7 @@ export default function HistoryPage() {
       </div>
 
       {/* Weekly streaks */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 mb-6">
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4 mb-6">
         <div className="font-semibold text-gray-800 mb-2">Weekly streaks</div>
         <StreakBadges history={entries} />
       </div>
@@ -393,22 +342,22 @@ export default function HistoryPage() {
                       <div className="text-sm text-gray-500">{new Date(entry.date || 0).toLocaleString()}</div>
                       {!expanded[entry.date || String(idx)] ? (
                         <div className="text-gray-800 font-medium">
-                          Sleep: <span className="text-gray-700">{entry.sleep}</span> · Mood: <span className="text-gray-700">{entry.mood}</span>
+                          Sleep: <span className="text-gray-700">{entry.sleep}</span> | Mood: <span className="text-gray-700">{entry.mood}</span>
                         </div>
                       ) : (
                         <div className="text-gray-800 font-medium">
-                          Sleep: <span className="text-gray-700">{entry.sleep}</span> · Mood: <span className="text-gray-700">{entry.mood}</span> · Stress: <span className="text-gray-700">{entry.stress}</span> · Energy: <span className="text-gray-700">{entry.energy}</span>
+                          Sleep: <span className="text-gray-700">{entry.sleep}</span> | Mood: <span className="text-gray-700">{entry.mood}</span> | Stress: <span className="text-gray-700">{entry.stress}</span> | Energy: <span className="text-gray-700">{entry.energy}</span>
                           {typeof entry.natureMinutes === "number" && (
-                            <> · Nature: <span className="text-gray-700">{entry.natureMinutes} min</span></>
+                            <> | Nature: <span className="text-gray-700">{entry.natureMinutes} min</span></>
                           )}
                           {typeof entry.steps === "number" && (
-                            <> · Steps: <span className="text-gray-700">{entry.steps}</span></>
+                            <> | Steps: <span className="text-gray-700">{entry.steps}</span></>
                           )}
                           {(entry.exercise && entry.exercise.length) ? (
-                            <> · Exercise: <span className="text-gray-700">{entry.exercise.join(", ")}</span></>
+                            <> | Exercise: <span className="text-gray-700">{entry.exercise.join(", ")}</span></>
                           ) : null}
                           {typeof entry.screenTime === "number" && (
-                            <> · Screen: <span className="text-gray-700">{entry.screenTime} min</span></>
+                            <> | Screen: <span className="text-gray-700">{entry.screenTime} min</span></>
                           )}
                         </div>
                       )}
@@ -440,14 +389,14 @@ export default function HistoryPage() {
           </div>
         ))}
       </div>
-      {/* Menacing confirm modal */}
+      {/* Delete confirmation modal */}
       {pendingDelete && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/60" onClick={() => setPendingDelete(null)} />
           <div
             role="dialog"
             aria-modal="true"
-            className="relative w-[92%] max-w-sm rounded-2xl border-2 border-red-600 bg-white shadow-2xl p-6 text-center ring-4 ring-red-600/20 animate-fadeIn"
+            className="relative w-[92%] max-w-sm rounded-lg border border-red-200 bg-white shadow-2xl p-6 text-center ring-4 ring-red-100 animate-fadeIn"
           >
             <button
               aria-label="Close"
@@ -456,9 +405,9 @@ export default function HistoryPage() {
             >
               <X className="w-4 h-4" />
             </button>
-            <Skull className="w-10 h-10 text-red-600 mx-auto mb-3" />
-            <h3 className="text-lg font-extrabold text-red-700 tracking-wide">Delete this entry?</h3>
-            <p className="text-sm text-gray-700 mt-1 mb-4">This action is irreversible.</p>
+            <TriangleAlert className="w-10 h-10 text-red-600 mx-auto mb-3" />
+            <h3 className="text-lg font-bold text-red-700 tracking-wide">Delete this entry?</h3>
+            <p className="text-sm text-gray-700 mt-1 mb-4">This removes the check-in from your history.</p>
             <div className="flex items-center justify-center gap-3">
               <button
                 type="button"
@@ -476,7 +425,7 @@ export default function HistoryPage() {
                   const id = idByDate?.get(pendingDelete);
                   if (id) {
                     try {
-                      const res = await fetch(`${API_URL}/${id}`, { method: "DELETE" });
+                      const res = await fetch(`${STATS_API_URL}/${id}`, { method: "DELETE" });
                       if (!res.ok) throw new Error("Failed to delete");
                       setEntries((prev) => prev.filter((e) => e.date !== pendingDelete));
                     } catch {
@@ -502,7 +451,7 @@ export default function HistoryPage() {
       {editing && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/60" onClick={() => setEditing(null)} />
-          <div className="relative w-[92%] max-w-md rounded-2xl border bg-white shadow-2xl p-6 animate-fadeIn">
+          <div className="relative w-[92%] max-w-md rounded-lg border bg-white shadow-2xl p-6 animate-fadeIn">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-lg font-semibold">Edit entry</h3>
               <button aria-label="Close" className="text-gray-400 hover:text-gray-600" onClick={() => setEditing(null)}><X className="w-4 h-4" /></button>
@@ -510,7 +459,7 @@ export default function HistoryPage() {
             <div className="space-y-3">
               <div>
                 <label className="text-xs text-gray-600">Sleep</label>
-                <select className="w-full p-2 border rounded mt-1" value={editing.sleep} onChange={(e) => setEditing({ ...editing, sleep: e.target.value as any })}>
+                <select className="w-full p-2 border rounded mt-1" value={editing.sleep} onChange={(e) => setEditing({ ...editing, sleep: e.target.value as DailyCheckIn["sleep"] })}>
                   <option value="poor">poor</option>
                   <option value="ok">ok</option>
                   <option value="good">good</option>
@@ -518,7 +467,7 @@ export default function HistoryPage() {
               </div>
               <div>
                 <label className="text-xs text-gray-600">Mood</label>
-                <select className="w-full p-2 border rounded mt-1" value={editing.mood} onChange={(e) => setEditing({ ...editing, mood: e.target.value as any })}>
+                <select className="w-full p-2 border rounded mt-1" value={editing.mood} onChange={(e) => setEditing({ ...editing, mood: e.target.value as DailyCheckIn["mood"] })}>
                   <option value="low">low</option>
                   <option value="neutral">neutral</option>
                   <option value="good">good</option>
@@ -526,7 +475,7 @@ export default function HistoryPage() {
               </div>
               <div>
                 <label className="text-xs text-gray-600">Stress</label>
-                <select className="w-full p-2 border rounded mt-1" value={editing.stress} onChange={(e) => setEditing({ ...editing, stress: e.target.value as any })}>
+                <select className="w-full p-2 border rounded mt-1" value={editing.stress} onChange={(e) => setEditing({ ...editing, stress: e.target.value as DailyCheckIn["stress"] })}>
                   <option value="low">low</option>
                   <option value="medium">medium</option>
                   <option value="high">high</option>
@@ -534,7 +483,7 @@ export default function HistoryPage() {
               </div>
               <div>
                 <label className="text-xs text-gray-600">Energy</label>
-                <select className="w-full p-2 border rounded mt-1" value={editing.energy} onChange={(e) => setEditing({ ...editing, energy: e.target.value as any })}>
+                <select className="w-full p-2 border rounded mt-1" value={editing.energy} onChange={(e) => setEditing({ ...editing, energy: e.target.value as DailyCheckIn["energy"] })}>
                   <option value="low">low</option>
                   <option value="medium">medium</option>
                   <option value="high">high</option>
@@ -555,20 +504,10 @@ export default function HistoryPage() {
               <div>
                 <label className="text-xs text-gray-600">Exercise</label>
                 <TagPicker
-                  options={["cardio","strength","upper","lower","mobility","flexibility"]}
+                  options={EXERCISE_OPTIONS}
                   value={editing.exercise ?? []}
-                  onChange={(next) => setEditing({ ...editing, exercise: next as ExerciseType[] })}
-                  labelFormatter={(opt) => {
-                    const map = {
-                      cardio: "Cardio",
-                      strength: "Strength Training",
-                      upper: "Upper Body",
-                      lower: "Lower Body",
-                      mobility: "Mobility",
-                      flexibility: "Flexibility",
-                    };
-                    return map[opt as ExerciseType] ?? opt;
-                  }}
+                  onChange={(next) => setEditing({ ...editing, exercise: next })}
+                  labelFormatter={(opt) => EXERCISE_LABELS[opt]}
                 />
               </div>
             </div>
@@ -580,22 +519,8 @@ export default function HistoryPage() {
                 if (id) {
                   // Remote update with fallback
                   try {
-                    const existing: DailyStat = {
-                      id,
-                      date: editing.date,
-                      mood: 5,
-                      energy: 5,
-                      stress: 5,
-                      sleepHours: 7,
-                      timeInNatureMinutes: editing.natureMinutes ?? 0,
-                      steps: editing.steps ?? 0,
-                      screenTimeMinutes: typeof editing.screenTime === "number" ? editing.screenTime : null,
-                      exercises: (editing.exercise && editing.exercise.length)
-                        ? [{ type: editing.exercise[0] === "upper" ? "UpperBody" : editing.exercise[0] === "lower" ? "LowerBody" : editing.exercise[0] === "mobility" || editing.exercise[0] === "flexibility" ? "Mobility" : editing.exercise[0] === "cardio" ? "Cardio" : "StrengthTraining", durationMinutes: 30, intensity: 5 }]
-                        : [],
-                    };
-                    const payload = toPayload(editing, existing);
-                    const res = await fetch(`${API_URL}/${id}`, {
+                    const payload = toBackendStat(editing, { id, date: editing.date });
+                    const res = await fetch(`${STATS_API_URL}/${id}`, {
                       method: "PUT",
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify(payload),
@@ -638,7 +563,7 @@ function MiniCards({ history }: { history: Array<{ natureMinutes?: number; steps
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-      <div className="p-4 rounded-xl border border-gray-200 bg-white shadow-sm">
+      <div className="p-4 rounded-lg border border-gray-200 bg-white shadow-sm">
         <div className="flex items-center justify-between mb-1">
           <span className="text-sm font-semibold text-gray-800">Nature</span>
           <span className="text-xs text-gray-600">Target: {natureTarget} min</span>
@@ -646,7 +571,7 @@ function MiniCards({ history }: { history: Array<{ natureMinutes?: number; steps
         <div className="text-sm text-gray-700 mb-2">{nature} min</div>
         {bar(naturePct, nature >= natureTarget ? "bg-green-500" : nature >= natureTarget / 2 ? "bg-yellow-400" : "bg-red-500")}
       </div>
-      <div className="p-4 rounded-xl border border-gray-200 bg-white shadow-sm">
+      <div className="p-4 rounded-lg border border-gray-200 bg-white shadow-sm">
         <div className="flex items-center justify-between mb-1">
           <span className="text-sm font-semibold text-gray-800">Steps</span>
           <span className="text-xs text-gray-600">Target: {stepsTarget}</span>
@@ -663,14 +588,14 @@ function ScreenTimeCard({ sliced }: { sliced: Array<DailyCheckIn> }) {
   const avg = vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : 0;
 
   const fmt = (m: number) => {
-    if (!m) return "—";
+    if (!m) return "-";
     const hrs = Math.floor(m / 60);
     const mins = m % 60;
     return hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`;
   };
 
   return (
-    <div className="p-4 rounded-xl border border-gray-200 bg-white shadow-sm">
+    <div className="p-4 rounded-lg border border-gray-200 bg-white shadow-sm">
       <div className="flex items-center justify-between mb-1">
         <span className="text-sm font-semibold text-gray-800">Avg screen time</span>
         <span className="text-xs text-gray-600">Based on {vals.length} entries</span>

@@ -4,8 +4,10 @@ type LogoProps = {
 };
 
 export default function Logo({ className }: LogoProps) {
+  const rootClassName = ["logo-mark", className].filter(Boolean).join(" ");
+
   return (
-    <div className={`flex items-center gap-3 ${className}`}>
+    <div className={rootClassName}>
       {/* SVG Icon */}
       <svg
         width="36"
@@ -13,7 +15,7 @@ export default function Logo({ className }: LogoProps) {
         viewBox="0 0 24 24"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
-        className="text-white"
+        className="logo-mark__icon"
       >
         {/* Outer circle */}
         <circle
@@ -37,7 +39,7 @@ export default function Logo({ className }: LogoProps) {
       </svg>
 
       {/* Text */}
-      <span className="text-xl font-semibold text-white tracking-wide">
+      <span className="logo-mark__text">
         Daily Check-In
       </span>
     </div>
