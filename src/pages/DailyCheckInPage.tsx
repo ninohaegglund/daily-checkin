@@ -1,14 +1,21 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
-  STATS_API_URL,
+  deleteStat as deleteStatRequest,
+  listStats,
+  saveStat,
+  updateStat,
   type BackendDailyStat,
   type BackendExerciseType,
+  type DailyStatRequest,
 } from "../api/stats";
+import { useHealthStore } from "../store/healthStore";
 
 type ExerciseType = BackendExerciseType;
 type DailyStat = BackendDailyStat;
 
 export default function DailyCheckInPage() {
+  const markStatsChanged = useHealthStore((state) => state.markStatsChanged);
+
   // UI state
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -30,23 +37,21 @@ export default function DailyCheckInPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
 
   // Fetch all stats
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch(STATS_API_URL);
-      if (!res.ok) throw new Error("Failed to load stats");
-      const data = await res.json();
-      setStats(data);
-    } catch {
-      setError("Could not load stats. Is the backend running?");
+      setError(null);
+      setStats(await listStats());
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : "Could not load stats");
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    fetchStats();
-  }, []);
+    void fetchStats();
+  }, [fetchStats]);
 
   // Submit (create or update)
   const submit = async () => {
@@ -54,9 +59,8 @@ export default function DailyCheckInPage() {
     setSubmitting(true);
 
     try {
-      const payload = {
-        id: editingId ?? 0,
-        date: new Date().toISOString(),
+      const payload: DailyStatRequest = {
+        date: new Date().toISOString().slice(0, 10),
         mood,
         energy,
         stress,
@@ -69,26 +73,19 @@ export default function DailyCheckInPage() {
             type: exerciseType,
             durationMinutes: exerciseDuration,
             intensity: exerciseIntensity,
-            notes: "Test entry"
+            notes: null
           }
         ]
       };
 
-      const method = editingId ? "PUT" : "POST";
-      const url = editingId ? `${STATS_API_URL}/${editingId}` : STATS_API_URL;
-
-      const res = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
-
-      if (!res.ok) {
-        const body = await res.json();
-        throw new Error(body?.title ?? "Failed to save daily stat");
+      if (editingId) {
+        await updateStat(editingId, payload);
+      } else {
+        await saveStat(payload);
       }
 
       setEditingId(null);
+      markStatsChanged();
       await fetchStats();
       resetForm();
     } catch (err) {
@@ -102,14 +99,14 @@ export default function DailyCheckInPage() {
     }
   };
 
-  const deleteStat = async (id: number) => {
+  const handleDeleteStat = async (id: number) => {
     setError(null);
     try {
-      const res = await fetch(`${STATS_API_URL}/${id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Failed to delete stat");
+      await deleteStatRequest(id);
+      markStatsChanged();
       await fetchStats();
-    } catch {
-      setError("Could not delete the stat. Is the backend running?");
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : "Could not delete the stat");
     }
   };
 
@@ -265,7 +262,7 @@ export default function DailyCheckInPage() {
                 Edit
               </button>
               <button
-                onClick={() => deleteStat(stat.id)}
+                onClick={() => handleDeleteStat(stat.id)}
                 className="px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700 transition text-sm"
               >
                 Delete

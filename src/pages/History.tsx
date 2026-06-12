@@ -1,4 +1,3 @@
-import { useHealthStore } from "../store/healthStore";
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { Trash2, TriangleAlert, X } from "lucide-react";
@@ -7,11 +6,13 @@ import TagPicker from "../components/TagPicker";
 import {
   EXERCISE_LABELS,
   EXERCISE_OPTIONS,
-  STATS_API_URL,
+  deleteStat,
   fromBackendStat,
+  listStats,
   toBackendStat,
-  type BackendDailyStat,
+  updateStat,
 } from "../api/stats";
+import { useHealthStore } from "../store/healthStore";
 
 type MetricKey = "sleep" | "mood" | "stress" | "energy" | "nature" | "steps";
 type RangeOption = "7" | "14" | "30" | "all";
@@ -60,10 +61,9 @@ const getMetricValue = (entry: DailyCheckIn, key: MetricKey): string | number =>
 };
 
 export default function HistoryPage() {
-  const { history, removeEntry } = useHealthStore();
-  const { updateEntry } = useHealthStore();
+  const { statsVersion, markStatsChanged } = useHealthStore();
   const [entries, setEntries] = useState<DailyCheckIn[]>([]);
-  const [idByDate, setIdByDate] = useState<Map<string, number> | null>(null);
+  const [idByDate, setIdByDate] = useState<Map<string, number>>(new Map());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [metric, setMetric] = useState<MetricKey>("mood");
@@ -81,25 +81,22 @@ export default function HistoryPage() {
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch(STATS_API_URL);
-        if (!res.ok) throw new Error("Failed to load stats");
-        const data: BackendDailyStat[] = await res.json();
+        const data = await listStats();
         if (canceled) return;
         const converted = data.map(fromBackendStat);
         setEntries(converted);
         setIdByDate(new Map(data.map((s) => [s.date, s.id])));
       } catch (e) {
-        // Fallback to local history
-        setEntries(history);
-        setIdByDate(null);
+        setEntries([]);
+        setIdByDate(new Map());
         if (e instanceof Error) setError(e.message);
       } finally {
-        setLoading(false);
+        if (!canceled) setLoading(false);
       }
     };
     load();
     return () => { canceled = true; };
-  }, [history]);
+  }, [statsVersion]);
 
   // Always render the page; show notice/overlay when empty
 
@@ -421,21 +418,21 @@ export default function HistoryPage() {
                 className="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700 shadow-[0_0_25px_rgba(220,38,38,0.45)]"
                 onClick={async () => {
                   if (!pendingDelete) return;
-                  // If we have backend IDs, try remote delete
-                  const id = idByDate?.get(pendingDelete);
-                  if (id) {
-                    try {
-                      const res = await fetch(`${STATS_API_URL}/${id}`, { method: "DELETE" });
-                      if (!res.ok) throw new Error("Failed to delete");
-                      setEntries((prev) => prev.filter((e) => e.date !== pendingDelete));
-                    } catch {
-                      // Fallback to local deletion
-                      removeEntry(pendingDelete);
-                      setEntries((prev) => prev.filter((e) => e.date !== pendingDelete));
-                    }
-                  } else {
-                    removeEntry(pendingDelete);
+                  const id = idByDate.get(pendingDelete);
+                  if (id === undefined) {
+                    setError("Could not find this entry on the backend.");
+                    setPendingDelete(null);
+                    return;
+                  }
+
+                  try {
+                    await deleteStat(id);
                     setEntries((prev) => prev.filter((e) => e.date !== pendingDelete));
+                    markStatsChanged();
+                  } catch (caughtError) {
+                    setError(
+                      caughtError instanceof Error ? caughtError.message : "Could not delete entry"
+                    );
                   }
                   setPendingDelete(null);
                 }}
@@ -515,28 +512,21 @@ export default function HistoryPage() {
               <button className="px-4 py-2 rounded border" onClick={() => setEditing(null)}>Cancel</button>
               <button className="px-4 py-2 rounded bg-blue-600 text-white" onClick={async () => {
                 if (!editing?.date) { setEditing(null); return; }
-                const id = idByDate?.get(editing.date);
-                if (id) {
-                  // Remote update with fallback
-                  try {
-                    const payload = toBackendStat(editing, { id, date: editing.date });
-                    const res = await fetch(`${STATS_API_URL}/${id}`, {
-                      method: "PUT",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify(payload),
-                    });
-                    if (!res.ok) throw new Error("Failed to update");
-                    // Update local entries view
-                    setEntries((prev) => prev.map((e) => (e.date === editing.date ? { ...editing } : e)));
-                  } catch {
-                    updateEntry(editing.date, editing as Partial<DailyCheckIn>);
-                    setEntries((prev) => prev.map((e) => (e.date === editing.date ? { ...editing } : e)));
-                  }
-                } else {
-                  updateEntry(editing.date, editing as Partial<DailyCheckIn>);
-                  setEntries((prev) => prev.map((e) => (e.date === editing.date ? { ...editing } : e)));
+                const id = idByDate.get(editing.date);
+                if (id === undefined) {
+                  setError("Could not find this entry on the backend.");
+                  setEditing(null);
+                  return;
                 }
-                setEditing(null);
+
+                try {
+                  await updateStat(id, toBackendStat(editing));
+                  setEntries((prev) => prev.map((e) => (e.date === editing.date ? { ...editing } : e)));
+                  markStatsChanged();
+                  setEditing(null);
+                } catch (caughtError) {
+                  setError(caughtError instanceof Error ? caughtError.message : "Could not update entry");
+                }
               }}>Save</button>
             </div>
           </div>

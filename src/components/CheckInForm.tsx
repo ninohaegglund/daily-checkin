@@ -18,19 +18,20 @@ import {
 import {
   EXERCISE_LABELS,
   EXERCISE_OPTIONS,
-  STATS_API_URL,
   energyFromNumber,
   moodFromNumber,
+  saveStat,
   sleepFromHours,
   stressFromNumber,
   toBackendExerciseType,
+  type DailyStatRequest,
 } from "../api/stats";
 import { useHealthStore } from "../store/healthStore";
 import type { DailyCheckIn, ExerciseType } from "../types";
 import TagPicker from "./TagPicker";
 
 export default function CheckInForm() {
-  const { checkIn, setCheckIn, saveCheckIn, generateStatuses } = useHealthStore();
+  const { checkIn, setCheckIn, generateStatuses, markStatsChanged } = useHealthStore();
   const [screenTime, setScreenTime] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -72,9 +73,8 @@ export default function CheckInForm() {
     setSubmitting(true);
 
     const parsedScreenTime = screenTime ? Number(screenTime) : undefined;
-    const payload = {
-      id: 0,
-      date: new Date().toISOString(),
+    const payload: DailyStatRequest = {
+      date: new Date().toISOString().slice(0, 10),
       mood: moodNum,
       energy: energyNum,
       stress: stressNum,
@@ -91,31 +91,15 @@ export default function CheckInForm() {
     };
 
     try {
-      const res = await fetch(STATS_API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) {
-        let message = "Failed to save to backend";
-        try {
-          const body = await res.json();
-          message = body?.title ?? message;
-        } catch {
-          // Keep the fallback message when the backend response is not JSON.
-        }
-        throw new Error(message);
-      }
-
+      await saveStat(payload);
+      setCheckIn({ ...checkIn, screenTime: parsedScreenTime, exercise: exerciseTypes });
       generateStatuses();
+      markStatsChanged();
     } catch (err) {
-      saveCheckIn({ ...checkIn, screenTime: parsedScreenTime, exercise: exerciseTypes });
-      generateStatuses();
       if (err instanceof Error) {
-        setError(`${err.message}. Saved locally.`);
+        setError(err.message);
       } else {
-        setError("Could not reach API. Saved locally.");
+        setError("Could not save your check-in.");
       }
     } finally {
       setScreenTime("");

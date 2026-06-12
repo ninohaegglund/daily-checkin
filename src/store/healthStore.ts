@@ -6,9 +6,11 @@ type HealthState = {
   checkIn: DailyCheckIn;
   statuses: StatusEffect[];
   history: DailyCheckIn[];
+  statsVersion: number;
   setCheckIn: (checkIn: DailyCheckIn) => void;
   saveCheckIn: (override?: Partial<DailyCheckIn>) => void;
   generateStatuses: () => void;
+  markStatsChanged: () => void;
   clearHistory: () => void;
   removeEntry: (date: string) => void;
   updateEntry: (date: string, patch: Partial<DailyCheckIn>) => void;
@@ -31,6 +33,7 @@ export const useHealthStore = create<HealthState>()(
   statuses: [],
 
   history: [], 
+  statsVersion: 0,
 
   setCheckIn: (checkIn) => set({ checkIn }),
 
@@ -80,6 +83,7 @@ export const useHealthStore = create<HealthState>()(
     set({ statuses: newStatuses });
   },
 
+  markStatsChanged: () => set((state) => ({ statsVersion: state.statsVersion + 1 })),
   clearHistory: () => set({ history: [] }),
   removeEntry: (date: string) =>
     set((state) => ({ history: state.history.filter((h) => h.date !== date) })),
@@ -89,7 +93,14 @@ export const useHealthStore = create<HealthState>()(
     {
       name: "health-store",
       storage: createJSONStorage(() => localStorage),
-      partialize: (state) => ({ history: state.history, checkIn: state.checkIn }),
+      partialize: (state) => ({ checkIn: state.checkIn }),
+      merge: (persistedState, currentState) => {
+        const persisted = persistedState as Partial<Pick<HealthState, "checkIn">>;
+        return {
+          ...currentState,
+          checkIn: persisted.checkIn ?? currentState.checkIn,
+        };
+      },
     }
   )
 );

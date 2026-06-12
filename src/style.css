@@ -146,6 +146,8 @@ a {
 .app-nav {
   display: inline-flex;
   align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 6px;
   padding: 5px;
   border: 1px solid rgba(255, 255, 255, 0.24);
@@ -160,6 +162,7 @@ a {
   min-height: 38px;
   align-items: center;
   justify-content: center;
+  gap: 7px;
   border-radius: 999px;
   padding: 0 16px;
   color: rgba(255, 255, 255, 0.84);
@@ -169,6 +172,11 @@ a {
     background 180ms ease,
     color 180ms ease,
     transform 180ms ease;
+}
+
+.nav-button {
+  border: 0;
+  background: transparent;
 }
 
 .nav-link:hover,
@@ -331,8 +339,50 @@ a {
 .checkin-card,
 .status-overview,
 .care-panel,
-.history-card {
+.history-card,
+.auth-card {
   padding: 28px;
+}
+
+.auth-card {
+  max-width: 540px;
+  margin: 0 auto;
+}
+
+.auth-fields {
+  display: grid;
+  gap: 14px;
+}
+
+.auth-field {
+  display: grid;
+  gap: 8px;
+  color: #24342d;
+  font-size: 0.92rem;
+  font-weight: 850;
+}
+
+.auth-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.auth-alert svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+
+.auth-switch {
+  margin: 18px 0 0;
+  color: #63736b;
+  font-size: 0.92rem;
+  text-align: center;
+}
+
+.auth-switch a {
+  color: #17684e;
+  font-weight: 850;
 }
 
 .panel-heading {
@@ -723,6 +773,27 @@ a {
   font-size: 0.9rem;
 }
 
+.overview-streaks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 12px;
+}
+
+.overview-streaks span {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid #b9ddce;
+  border-radius: 999px;
+  background: #eaf7f1;
+  color: #206d53;
+  padding: 0 10px;
+  font-size: 0.82rem;
+  font-weight: 850;
+}
+
 .soft-alert {
   margin-bottom: 14px;
   border: 1px solid #ead9a4;
@@ -837,6 +908,16 @@ a {
   background: #fff8f5;
 }
 
+.care-note--positive {
+  border-color: #b9ddce;
+  background: #f1fbf6;
+}
+
+.care-note--notice {
+  border-color: #d9c796;
+  background: #fffaf0;
+}
+
 .care-note__icon {
   display: inline-flex;
   width: 36px;
@@ -851,6 +932,16 @@ a {
 .care-note--warning .care-note__icon {
   background: #fff0eb;
   color: #bf4c39;
+}
+
+.care-note--positive .care-note__icon {
+  background: #e8f5ef;
+  color: #16835f;
+}
+
+.care-note--notice .care-note__icon {
+  background: #fff5de;
+  color: #a36b10;
 }
 
 .care-note h3 {
@@ -877,6 +968,14 @@ a {
 
 .care-note--warning strong {
   color: #884230;
+}
+
+.care-note--positive strong {
+  color: #22694f;
+}
+
+.care-note--notice strong {
+  color: #755216;
 }
 
 .wellness-input:focus,
@@ -960,7 +1059,8 @@ input:focus-visible {
   .checkin-card,
   .status-overview,
   .care-panel,
-  .history-card {
+  .history-card,
+  .auth-card {
     padding: 20px;
   }
 
