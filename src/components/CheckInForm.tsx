@@ -19,10 +19,13 @@ import {
   EXERCISE_LABELS,
   EXERCISE_OPTIONS,
   energyFromNumber,
+  energyLabelFromNumber,
   moodFromNumber,
+  moodLabelFromNumber,
   saveStat,
   sleepFromHours,
   stressFromNumber,
+  stressLabelFromNumber,
   toBackendExerciseType,
   type DailyStatRequest,
 } from "../api/stats";
@@ -125,7 +128,7 @@ export default function CheckInForm() {
           icon={<Smile className="h-5 w-5" />}
           label="Mood"
           value={moodNum}
-          valueLabel={moodFromNumber(moodNum)}
+          valueLabel={moodLabelFromNumber(moodNum)}
           min={1}
           max={10}
           onChange={setMoodFromNum}
@@ -135,7 +138,7 @@ export default function CheckInForm() {
           icon={<Activity className="h-5 w-5" />}
           label="Stress"
           value={stressNum}
-          valueLabel={stressFromNumber(stressNum)}
+          valueLabel={stressLabelFromNumber(stressNum)}
           min={1}
           max={10}
           onChange={setStressFromNum}
@@ -145,7 +148,7 @@ export default function CheckInForm() {
           icon={<Zap className="h-5 w-5" />}
           label="Energy"
           value={energyNum}
-          valueLabel={energyFromNumber(energyNum)}
+          valueLabel={energyLabelFromNumber(energyNum)}
           min={1}
           max={10}
           onChange={setEnergyFromNum}

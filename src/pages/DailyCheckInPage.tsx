@@ -2,7 +2,10 @@ import { useCallback, useEffect, useState } from "react";
 import {
   deleteStat as deleteStatRequest,
   listStats,
+  energyLabelFromNumber,
+  moodLabelFromNumber,
   saveStat,
+  stressLabelFromNumber,
   updateStat,
   type BackendDailyStat,
   type BackendExerciseType,
@@ -151,15 +154,15 @@ export default function DailyCheckInPage() {
 
       {/* Form */}
       <div className="space-y-4">
-        <Field label={`Mood: ${mood}`}>
+        <Field label={`Mood: ${moodLabelFromNumber(mood)} (${mood}/10)`}>
           <input type="range" min={1} max={10} value={mood} onChange={e => setMood(+e.target.value)} />
         </Field>
 
-        <Field label={`Energy: ${energy}`}>
+        <Field label={`Energy: ${energyLabelFromNumber(energy)} (${energy}/10)`}>
           <input type="range" min={1} max={10} value={energy} onChange={e => setEnergy(+e.target.value)} />
         </Field>
 
-        <Field label={`Stress: ${stress}`}>
+        <Field label={`Stress: ${stressLabelFromNumber(stress)} (${stress}/10)`}>
           <input type="range" min={1} max={10} value={stress} onChange={e => setStress(+e.target.value)} />
         </Field>
 

@@ -1,8 +1,8 @@
 export type DailyCheckIn = {
   sleep: "poor" | "ok" | "good";
-  mood: "low" | "neutral" | "good";
-  stress: "low" | "medium" | "high";
-  energy: "low" | "medium" | "high";
+  mood: "very-low" | "low" | "neutral" | "good" | "very-good";
+  stress: "very-low" | "low" | "medium" | "high" | "very-high";
+  energy: "very-low" | "low" | "medium" | "high" | "very-high";
   date?: string;
   natureMinutes?: number; // time spent in nature in minutes
   steps?: number; // steps taken today

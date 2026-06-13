@@ -4,8 +4,11 @@ import { Trash2, TriangleAlert, X } from "lucide-react";
 import type { DailyCheckIn } from "../types";
 import TagPicker from "../components/TagPicker";
 import {
+  ENERGY_LABELS,
   EXERCISE_LABELS,
   EXERCISE_OPTIONS,
+  MOOD_LABELS,
+  STRESS_LABELS,
   deleteStat,
   fromBackendStat,
   listStats,
@@ -35,11 +38,56 @@ const colorMap: Record<MetricKey, string> = {
   steps: "#3b82f6", // blue-500
 };
 
+const moodOptions: Array<{ value: DailyCheckIn["mood"]; label: string }> = [
+  { value: "very-low", label: MOOD_LABELS["very-low"] },
+  { value: "low", label: MOOD_LABELS.low },
+  { value: "neutral", label: MOOD_LABELS.neutral },
+  { value: "good", label: MOOD_LABELS.good },
+  { value: "very-good", label: MOOD_LABELS["very-good"] },
+];
+
+const stressOptions: Array<{ value: DailyCheckIn["stress"]; label: string }> = [
+  { value: "very-low", label: STRESS_LABELS["very-low"] },
+  { value: "low", label: STRESS_LABELS.low },
+  { value: "medium", label: STRESS_LABELS.medium },
+  { value: "high", label: STRESS_LABELS.high },
+  { value: "very-high", label: STRESS_LABELS["very-high"] },
+];
+
+const energyOptions: Array<{ value: DailyCheckIn["energy"]; label: string }> = [
+  { value: "very-low", label: ENERGY_LABELS["very-low"] },
+  { value: "low", label: ENERGY_LABELS.low },
+  { value: "medium", label: ENERGY_LABELS.medium },
+  { value: "high", label: ENERGY_LABELS.high },
+  { value: "very-high", label: ENERGY_LABELS["very-high"] },
+];
+
+const metricMaxScore = (k: MetricKey): number =>
+  k === "mood" || k === "stress" || k === "energy" ? 5 : 3;
+
 const toScore = (k: MetricKey, v: string | number): number => {
   if (k === "sleep") return v === "good" ? 3 : v === "ok" ? 2 : 1;
-  if (k === "mood") return v === "good" ? 3 : v === "neutral" ? 2 : 1;
-  if (k === "stress") return v === "low" ? 3 : v === "medium" ? 2 : 1; // inverted
-  if (k === "energy") return v === "high" ? 3 : v === "medium" ? 2 : 1;
+  if (k === "mood") {
+    if (v === "very-good") return 5;
+    if (v === "good") return 4;
+    if (v === "neutral") return 3;
+    if (v === "low") return 2;
+    return 1;
+  }
+  if (k === "stress") {
+    if (v === "very-low") return 5;
+    if (v === "low") return 4;
+    if (v === "medium") return 3;
+    if (v === "high") return 2;
+    return 1;
+  }
+  if (k === "energy") {
+    if (v === "very-high") return 5;
+    if (v === "high") return 4;
+    if (v === "medium") return 3;
+    if (v === "low") return 2;
+    return 1;
+  }
   if (k === "nature") {
     const n = typeof v === "number" ? v : 0;
     return n >= 60 ? 3 : n >= 30 ? 2 : 1;
@@ -59,6 +107,12 @@ const getMetricValue = (entry: DailyCheckIn, key: MetricKey): string | number =>
   if (key === "steps") return entry.steps ?? 0;
   return entry[key];
 };
+
+const formatMood = (value: DailyCheckIn["mood"]) => MOOD_LABELS[value];
+
+const formatStress = (value: DailyCheckIn["stress"]) => STRESS_LABELS[value];
+
+const formatEnergy = (value: DailyCheckIn["energy"]) => ENERGY_LABELS[value];
 
 export default function HistoryPage() {
   const { statsVersion, markStatsChanged } = useHealthStore();
@@ -115,11 +169,13 @@ export default function HistoryPage() {
   const innerH = height - padding * 2;
   const n = Math.max(1, sliced.length);
   const xStep = n > 1 ? innerW / (n - 1) : 0;
+  const scoreToY = (score: number, k: MetricKey) =>
+    padding + innerH - ((score - 1) / (metricMaxScore(k) - 1)) * innerH;
 
   const points = sliced.map((e, i) => {
     const val = getMetricValue(e, metric);
-    const score = toScore(metric, val); // 1..3
-    const y = padding + innerH - ((score - 1) / 2) * innerH; // map 1..3 to bottom..top
+    const score = toScore(metric, val);
+    const y = scoreToY(score, metric);
     const x = padding + i * xStep;
     return { x, y, label: formatDateShort(e.date) };
   });
@@ -133,14 +189,14 @@ export default function HistoryPage() {
       : sliced.reduce((acc, e) => {
           const val = getMetricValue(e, metric);
           return acc + toScore(metric, val);
-        }, 0) / sliced.length; // 1..3
-  const avgY = padding + innerH - ((avg - 1) / 2) * innerH;
+        }, 0) / sliced.length;
+  const avgY = scoreToY(avg, metric);
 
   const pointsFor = (m: MetricKey) => {
     const pts = sliced.map((e, i) => {
       const val = getMetricValue(e, m);
       const score = toScore(m, val);
-      const y = padding + innerH - ((score - 1) / 2) * innerH;
+      const y = scoreToY(score, m);
       const x = padding + i * xStep;
       return { x, y };
     });
@@ -339,11 +395,11 @@ export default function HistoryPage() {
                       <div className="text-sm text-gray-500">{new Date(entry.date || 0).toLocaleString()}</div>
                       {!expanded[entry.date || String(idx)] ? (
                         <div className="text-gray-800 font-medium">
-                          Sleep: <span className="text-gray-700">{entry.sleep}</span> | Mood: <span className="text-gray-700">{entry.mood}</span>
+                          Sleep: <span className="text-gray-700">{entry.sleep}</span> | Mood: <span className="text-gray-700">{formatMood(entry.mood)}</span>
                         </div>
                       ) : (
                         <div className="text-gray-800 font-medium">
-                          Sleep: <span className="text-gray-700">{entry.sleep}</span> | Mood: <span className="text-gray-700">{entry.mood}</span> | Stress: <span className="text-gray-700">{entry.stress}</span> | Energy: <span className="text-gray-700">{entry.energy}</span>
+                          Sleep: <span className="text-gray-700">{entry.sleep}</span> | Mood: <span className="text-gray-700">{formatMood(entry.mood)}</span> | Stress: <span className="text-gray-700">{formatStress(entry.stress)}</span> | Energy: <span className="text-gray-700">{formatEnergy(entry.energy)}</span>
                           {typeof entry.natureMinutes === "number" && (
                             <> | Nature: <span className="text-gray-700">{entry.natureMinutes} min</span></>
                           )}
@@ -465,25 +521,25 @@ export default function HistoryPage() {
               <div>
                 <label className="text-xs text-gray-600">Mood</label>
                 <select className="w-full p-2 border rounded mt-1" value={editing.mood} onChange={(e) => setEditing({ ...editing, mood: e.target.value as DailyCheckIn["mood"] })}>
-                  <option value="low">low</option>
-                  <option value="neutral">neutral</option>
-                  <option value="good">good</option>
+                  {moodOptions.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
                 </select>
               </div>
               <div>
                 <label className="text-xs text-gray-600">Stress</label>
                 <select className="w-full p-2 border rounded mt-1" value={editing.stress} onChange={(e) => setEditing({ ...editing, stress: e.target.value as DailyCheckIn["stress"] })}>
-                  <option value="low">low</option>
-                  <option value="medium">medium</option>
-                  <option value="high">high</option>
+                  {stressOptions.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
                 </select>
               </div>
               <div>
                 <label className="text-xs text-gray-600">Energy</label>
                 <select className="w-full p-2 border rounded mt-1" value={editing.energy} onChange={(e) => setEditing({ ...editing, energy: e.target.value as DailyCheckIn["energy"] })}>
-                  <option value="low">low</option>
-                  <option value="medium">medium</option>
-                  <option value="high">high</option>
+                  {energyOptions.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
                 </select>
               </div>
               <div>

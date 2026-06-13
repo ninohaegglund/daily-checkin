@@ -92,14 +92,68 @@ export const EXERCISE_LABELS: Record<UiExerciseType, string> = {
   flexibility: "Flexibility",
 };
 
+export const MOOD_LABELS: Record<DailyCheckIn["mood"], string> = {
+  "very-low": "Very low",
+  low: "Low",
+  neutral: "Neutral",
+  good: "Good",
+  "very-good": "Very good",
+};
+
+export const ENERGY_LABELS: Record<DailyCheckIn["energy"], string> = {
+  "very-low": "Very low",
+  low: "Low",
+  medium: "Medium",
+  high: "High",
+  "very-high": "Very high",
+};
+
+export const STRESS_LABELS: Record<DailyCheckIn["stress"], string> = {
+  "very-low": "Very low",
+  low: "Low",
+  medium: "Medium",
+  high: "High",
+  "very-high": "Very high",
+};
+
 export const moodFromNumber = (value: number): DailyCheckIn["mood"] =>
-  value <= 3 ? "low" : value <= 7 ? "neutral" : "good";
+  value <= 2
+    ? "very-low"
+    : value <= 4
+      ? "low"
+      : value <= 6
+        ? "neutral"
+        : value <= 8
+          ? "good"
+          : "very-good";
 
 export const energyFromNumber = (value: number): DailyCheckIn["energy"] =>
-  value <= 3 ? "low" : value <= 7 ? "medium" : "high";
+  value <= 2
+    ? "very-low"
+    : value <= 4
+      ? "low"
+      : value <= 6
+        ? "medium"
+        : value <= 8
+          ? "high"
+          : "very-high";
 
 export const stressFromNumber = (value: number): DailyCheckIn["stress"] =>
-  value <= 3 ? "low" : value <= 7 ? "medium" : "high";
+  value <= 2
+    ? "very-low"
+    : value <= 4
+      ? "low"
+      : value <= 6
+        ? "medium"
+        : value <= 8
+          ? "high"
+          : "very-high";
+
+export const moodLabelFromNumber = (value: number) => MOOD_LABELS[moodFromNumber(value)];
+
+export const energyLabelFromNumber = (value: number) => ENERGY_LABELS[energyFromNumber(value)];
+
+export const stressLabelFromNumber = (value: number) => STRESS_LABELS[stressFromNumber(value)];
 
 export const sleepFromHours = (hours: number): DailyCheckIn["sleep"] =>
   hours <= 6 ? "poor" : hours === 7 ? "ok" : "good";
@@ -149,11 +203,35 @@ export const fromBackendStat = (stat: BackendDailyStat): DailyCheckIn => ({
     : [],
 });
 
+const moodNumberByState: Record<DailyCheckIn["mood"], number> = {
+  "very-low": 1,
+  low: 3,
+  neutral: 5,
+  good: 8,
+  "very-good": 10,
+};
+
+const energyNumberByState: Record<DailyCheckIn["energy"], number> = {
+  "very-low": 1,
+  low: 3,
+  medium: 5,
+  high: 8,
+  "very-high": 10,
+};
+
+const stressNumberByState: Record<DailyCheckIn["stress"], number> = {
+  "very-low": 1,
+  low: 3,
+  medium: 5,
+  high: 8,
+  "very-high": 10,
+};
+
 export const toBackendStat = (checkIn: DailyCheckIn): DailyStatRequest => ({
   date: checkIn.date ?? new Date().toISOString().slice(0, 10),
-  mood: checkIn.mood === "low" ? 3 : checkIn.mood === "neutral" ? 5 : 8,
-  energy: checkIn.energy === "low" ? 3 : checkIn.energy === "medium" ? 6 : 9,
-  stress: checkIn.stress === "low" ? 3 : checkIn.stress === "medium" ? 6 : 9,
+  mood: moodNumberByState[checkIn.mood],
+  energy: energyNumberByState[checkIn.energy],
+  stress: stressNumberByState[checkIn.stress],
   sleepHours: checkIn.sleep === "poor" ? 5 : checkIn.sleep === "ok" ? 7 : 8,
   timeInNatureMinutes: checkIn.natureMinutes ?? 0,
   steps: checkIn.steps ?? 0,

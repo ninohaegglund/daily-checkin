@@ -50,7 +50,12 @@ export const useHealthStore = create<HealthState>()(
     const { checkIn } = get();
     const newStatuses: StatusEffect[] = [];
 
-    if (checkIn.mood === "low" || checkIn.stress === "high") {
+    if (
+      checkIn.mood === "very-low" ||
+      checkIn.mood === "low" ||
+      checkIn.stress === "high" ||
+      checkIn.stress === "very-high"
+    ) {
       newStatuses.push({
         id: "anxious",
         label: "Anxious",
@@ -60,7 +65,11 @@ export const useHealthStore = create<HealthState>()(
       });
     }
 
-    if (checkIn.sleep === "poor" || checkIn.energy === "low") {
+    if (
+      checkIn.sleep === "poor" ||
+      checkIn.energy === "very-low" ||
+      checkIn.energy === "low"
+    ) {
       newStatuses.push({
         id: "tired",
         label: "Tired",
