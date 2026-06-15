@@ -24,6 +24,11 @@ function App() {
   const status = useAuthStore((state) => state.status);
   const isAuthenticated = status === "authenticated" && user !== null;
 
+  const displayName =
+  user?.displayName ||
+  user?.email ||
+  "User";
+
   const todayLabel = new Intl.DateTimeFormat(undefined, {
     weekday: "short",
     month: "short",
@@ -88,16 +93,20 @@ function App() {
           </nav>
         </header>
 
-        <div className="hero-content">
+       <div className="hero-content">
           <span className="hero-kicker">
             <HeartPulse className="h-4 w-4" />
             Wellness dashboard
           </span>
+
           <h1>Daily Check-In</h1>
-          <p>
-            A calm place to read today's mood, sleep, stress, energy, movement,
-            and time outside.
+
+          <p className="hero-greeting">
+            {isAuthenticated
+              ? `Hello, ${displayName}. Take a moment to check in with your mood, energy, sleep, and daily rhythm.`
+              : "A calm place to read today's mood, sleep, stress, energy, movement, and time outside."}
           </p>
+   
           <div className="hero-chips" aria-label="Dashboard highlights">
             <span>
               <CalendarDays className="h-4 w-4" />
