@@ -151,8 +151,8 @@ function App() {
                       <CheckInForm />
                     </div>
                     <aside className="dashboard-sidebar" aria-label="Status dashboard">
-                      <StatusBars />
                       <StatusPanel />
+                      <StatusBars />
                     </aside>
                   </div>
                 }

@@ -125,7 +125,7 @@ export default function HistoryPage() {
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
   const [showAll, setShowAll] = useState<boolean>(false);
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [details, setDetails] = useState<DailyCheckIn | null>(null);
   const [editing, setEditing] = useState<DailyCheckIn | null>(null);
   const isEmpty = entries.length === 0;
 
@@ -392,36 +392,18 @@ export default function HistoryPage() {
         {[...sliced].reverse().map((entry, idx) => (
           <div key={idx} className="py-4 flex items-center justify-between flex-wrap gap-4">
             <div>
-                      <div className="text-sm text-gray-500">{new Date(entry.date || 0).toLocaleString()}</div>
-                      {!expanded[entry.date || String(idx)] ? (
-                        <div className="text-gray-800 font-medium">
-                          Sleep: <span className="text-gray-700">{entry.sleep}</span> | Mood: <span className="text-gray-700">{formatMood(entry.mood)}</span>
-                        </div>
-                      ) : (
-                        <div className="text-gray-800 font-medium">
-                          Sleep: <span className="text-gray-700">{entry.sleep}</span> | Mood: <span className="text-gray-700">{formatMood(entry.mood)}</span> | Stress: <span className="text-gray-700">{formatStress(entry.stress)}</span> | Energy: <span className="text-gray-700">{formatEnergy(entry.energy)}</span>
-                          {typeof entry.natureMinutes === "number" && (
-                            <> | Nature: <span className="text-gray-700">{entry.natureMinutes} min</span></>
-                          )}
-                          {typeof entry.steps === "number" && (
-                            <> | Steps: <span className="text-gray-700">{entry.steps}</span></>
-                          )}
-                          {(entry.exercise && entry.exercise.length) ? (
-                            <> | Exercise: <span className="text-gray-700">{entry.exercise.join(", ")}</span></>
-                          ) : null}
-                          {typeof entry.screenTime === "number" && (
-                            <> | Screen: <span className="text-gray-700">{entry.screenTime} min</span></>
-                          )}
-                        </div>
-                      )}
+              <div className="text-sm text-gray-500">{new Date(entry.date || 0).toLocaleString()}</div>
+              <div className="text-gray-800 font-medium">
+                Sleep: <span className="text-gray-700">{entry.sleep}</span> | Mood: <span className="text-gray-700">{formatMood(entry.mood)}</span>
+              </div>
             </div>
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
                         className="px-2 py-1 rounded-md text-sm border border-gray-200 hover:bg-gray-50"
-                        onClick={() => setExpanded((s) => ({ ...s, [entry.date || String(idx)]: !s[entry.date || String(idx)] }))}
+                        onClick={() => setDetails(entry)}
                       >
-                        {expanded[entry.date || String(idx)] ? "Collapse" : "Details"}
+                        Details
                       </button>
                       <button
                         type="button"
@@ -442,6 +424,11 @@ export default function HistoryPage() {
           </div>
         ))}
       </div>
+      {/* Details modal */}
+      {details && createPortal(
+        <CheckInDetailsModal entry={details} onClose={() => setDetails(null)} />,
+        document.body
+      )}
       {/* Delete confirmation modal */}
       {pendingDelete && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -588,6 +575,69 @@ export default function HistoryPage() {
           </div>
         </div>, document.body
       )}
+    </div>
+  );
+}
+
+function CheckInDetailsModal({ entry, onClose }: { entry: DailyCheckIn; onClose: () => void }) {
+  const detailDate = entry.date
+    ? new Date(entry.date).toLocaleString(undefined, {
+        weekday: "long",
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : "Saved check-in";
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="checkin-details-title"
+        className="relative w-full max-w-lg rounded-lg border border-emerald-100 bg-white shadow-2xl p-6 animate-fadeIn"
+      >
+        <div className="flex items-start justify-between gap-4 mb-5">
+          <div>
+            <p className="text-xs font-bold uppercase text-emerald-700">Check-in details</p>
+            <h3 id="checkin-details-title" className="text-lg font-semibold text-gray-900 mt-1">
+              {detailDate}
+            </h3>
+          </div>
+          <button aria-label="Close" className="text-gray-400 hover:text-gray-600" onClick={onClose}>
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <DetailItem label="Sleep" value={entry.sleep} />
+          <DetailItem label="Mood" value={formatMood(entry.mood)} />
+          <DetailItem label="Stress" value={formatStress(entry.stress)} />
+          <DetailItem label="Energy" value={formatEnergy(entry.energy)} />
+          <DetailItem label="Nature" value={`${entry.natureMinutes ?? 0} min`} />
+          <DetailItem label="Steps" value={(entry.steps ?? 0).toLocaleString()} />
+          <DetailItem label="Screen time" value={typeof entry.screenTime === "number" ? `${entry.screenTime} min` : "Not tracked"} />
+          <DetailItem label="Exercise" value={entry.exercise?.length ? entry.exercise.join(", ") : "Not tracked"} />
+        </div>
+
+        <div className="mt-5 flex justify-end">
+          <button type="button" className="px-4 py-2 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-100" onClick={onClose}>
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DetailItem({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+      <div className="text-xs font-semibold uppercase text-gray-500">{label}</div>
+      <div className="mt-1 text-sm font-semibold text-gray-900">{value}</div>
     </div>
   );
 }
