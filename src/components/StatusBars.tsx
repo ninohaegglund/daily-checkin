@@ -7,8 +7,10 @@ import {
   Leaf,
   Monitor,
   Smile,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
-import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useId, useState, type CSSProperties, type ReactNode } from "react";
 import { getStatsOverview, type StatsOverview } from "../api/stats";
 import { useHealthStore } from "../store/healthStore";
 
@@ -127,9 +129,13 @@ const scoreColor: Record<MetricTone, string> = {
   attention: "#d75a45",
 };
 
+const visibleMetricCount = 3;
+
 export default function StatusBars() {
   const statsVersion = useHealthStore((state) => state.statsVersion);
+  const hiddenMetricsId = useId();
   const [overview, setOverview] = useState<StatsOverview | null>(null);
+  const [metricsExpanded, setMetricsExpanded] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -199,6 +205,10 @@ export default function StatusBars() {
   }
 
   const metrics = overviewMetrics(overview);
+  const visibleMetrics = metrics.slice(0, visibleMetricCount);
+  const hiddenMetrics = metrics.slice(visibleMetricCount);
+  const hiddenMetricCount = hiddenMetrics.length;
+  const hasHiddenMetrics = hiddenMetricCount > 0;
   const overall = clampPercent(overview.overallWellnessScore);
   const overallTone = toneFromPercent(overall);
   const scoreStyle: ScoreStyle = {
@@ -247,7 +257,7 @@ export default function StatusBars() {
       </div>
 
       <div className="metric-list">
-        {metrics.map((metric) => (
+        {visibleMetrics.map((metric) => (
           <div key={metric.key} className="metric-item">
             <div className="metric-item__meta">
               <span className={`metric-item__icon metric-item__icon--${metric.tone}`}>
@@ -267,7 +277,61 @@ export default function StatusBars() {
             <span className="metric-item__percent">{metric.percent}%</span>
           </div>
         ))}
+        {hasHiddenMetrics && (
+          <div
+            id={hiddenMetricsId}
+            aria-hidden={!metricsExpanded}
+            className={`metric-list__expandable${
+              metricsExpanded ? " metric-list__expandable--open" : ""
+            }`}
+          >
+            <div className="metric-list__expandable-inner">
+              {hiddenMetrics.map((metric) => (
+                <div key={metric.key} className="metric-item">
+                  <div className="metric-item__meta">
+                    <span className={`metric-item__icon metric-item__icon--${metric.tone}`}>
+                      {metric.icon}
+                    </span>
+                    <div>
+                      <div className="metric-item__label">{metric.label}</div>
+                      <div className="metric-item__value">{metric.valueLabel}</div>
+                    </div>
+                  </div>
+                  <div className="metric-item__track" aria-hidden>
+                    <span
+                      className={`metric-item__bar metric-item__bar--${metric.tone}`}
+                      style={{ width: `${metric.percent}%` }}
+                    />
+                  </div>
+                  <span className="metric-item__percent">{metric.percent}%</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
+
+      {hasHiddenMetrics && (
+        <button
+          type="button"
+          className="metric-toggle"
+          aria-expanded={metricsExpanded}
+          aria-controls={hiddenMetricsId}
+          onClick={() => setMetricsExpanded((isExpanded) => !isExpanded)}
+        >
+          {metricsExpanded ? (
+            <>
+              Show fewer metrics
+              <ChevronUp className="h-4 w-4" />
+            </>
+          ) : (
+            <>
+              Show {hiddenMetricCount} more metric{hiddenMetricCount === 1 ? "" : "s"}
+              <ChevronDown className="h-4 w-4" />
+            </>
+          )}
+        </button>
+      )}
     </section>
   );
 }
